@@ -1,0 +1,10 @@
+.env
+.env.*
+!*.example
+env/**/*
+!env/**/
+!env/**/*.example
+certs/
+logs/
+backups/
+tmp/
