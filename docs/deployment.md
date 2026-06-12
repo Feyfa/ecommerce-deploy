@@ -108,6 +108,22 @@ Production backend:
 
 Replace `staging-vm` or `production-vm` with the real MagicDNS hostname or Tailscale IP on each VM.
 
+Current private VM URLs:
+
+```text
+Staging frontend:
+  http://ecommerce-staging.tail5028dc.ts.net:8080
+
+Staging backend:
+  http://ecommerce-staging.tail5028dc.ts.net:8081
+
+Production frontend:
+  http://ecommerce-production.tail5028dc.ts.net:8080
+
+Production backend:
+  http://ecommerce-production.tail5028dc.ts.net:8081
+```
+
 ## Script Usage
 
 The deployment scripts are shared between local stack validation and real VM deployment.
@@ -128,7 +144,124 @@ Local stack validation:
 
 `deploy-production.sh` starts or updates the production stack. There is no production stop script by default because stopping production should be a deliberate manual operation.
 
+Both deploy scripts restart `reverse-proxy` after `docker compose up -d --build`. This refreshes the Nginx upstream container DNS after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+
 `stop-staging.sh` stops the staging stack and is mainly intended for local stack validation or an intentional staging stop.
+
+## VM Manual Deployment Runbook
+
+The staging and production VMs use the same server-side folder structure:
+
+```text
+/opt/ecommerce/
+  frontend/
+  backend/
+  deploy/
+```
+
+The Compose files in `/opt/ecommerce/deploy` build from the sibling `/opt/ecommerce/frontend` and `/opt/ecommerce/backend` repositories. Pushing to GitHub does not update a VM by itself; pull the changed repositories on the VM before running the deploy script.
+
+### Deploy Staging
+
+```bash
+ssh ecommerce-staging
+
+cd /opt/ecommerce/frontend
+git pull origin main
+
+cd /opt/ecommerce/backend
+git pull origin main
+
+cd /opt/ecommerce/deploy
+git pull origin main
+
+./scripts/deploy-staging.sh
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml ps
+```
+
+Run staging migrations when backend migrations changed:
+
+```bash
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan migrate --force
+```
+
+Run staging seeders only when the seed data is intentionally needed:
+
+```bash
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --force
+```
+
+### Deploy Production
+
+```bash
+ssh ecommerce-production
+
+cd /opt/ecommerce/frontend
+git pull origin main
+
+cd /opt/ecommerce/backend
+git pull origin main
+
+cd /opt/ecommerce/deploy
+git pull origin main
+
+./scripts/deploy-production.sh
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml ps
+```
+
+Run production migrations when backend migrations changed:
+
+```bash
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml exec backend-php php artisan migrate --force
+```
+
+Do not run production seeders on every deploy. Seed production only during initial setup or when the specific seeder is known to be idempotent and safe:
+
+```bash
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml exec backend-php php artisan db:seed --force
+```
+
+### Deployment Scope
+
+If only the frontend changed, pull `/opt/ecommerce/frontend` and then run the relevant deploy script from `/opt/ecommerce/deploy`.
+
+If only the backend changed, pull `/opt/ecommerce/backend` and then run the relevant deploy script from `/opt/ecommerce/deploy`.
+
+If deployment configuration, scripts, Nginx config, or env examples changed, pull `/opt/ecommerce/deploy` before running the relevant deploy script.
+
+## VM SSH Deploy Keys
+
+Staging and production use separate GitHub deploy keys. Production follows one read-only deploy key per repository:
+
+```text
+~/.ssh/ecommerce_production_frontend_deploy
+~/.ssh/ecommerce_production_backend_deploy
+~/.ssh/ecommerce_production_deploy_repo
+```
+
+The production SSH config maps those keys to separate GitHub host aliases:
+
+```sshconfig
+Host github-production-frontend
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/ecommerce_production_frontend_deploy
+  IdentitiesOnly yes
+
+Host github-production-backend
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/ecommerce_production_backend_deploy
+  IdentitiesOnly yes
+
+Host github-production-deploy
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/ecommerce_production_deploy_repo
+  IdentitiesOnly yes
+```
+
+Each public key should be registered as a read-only deploy key on its matching GitHub repository. Do not enable write access for VM deploy keys unless the VM must push commits.
 
 ## Staging Commands
 
