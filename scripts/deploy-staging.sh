@@ -8,3 +8,10 @@ docker compose \
   --env-file env/staging/frontend.env \
   -f compose/compose.staging.yml \
   up -d --build
+
+# Refresh Nginx upstream DNS after rebuilt containers are recreated.
+docker compose \
+  --env-file env/staging/backend.env \
+  --env-file env/staging/frontend.env \
+  -f compose/compose.staging.yml \
+  restart reverse-proxy
