@@ -21,3 +21,6 @@ Application image definitions stay in the application repositories:
 
 - [Docker Staging And Production Deployment](docs/docker-staging-production.md)
   Explains the Docker deployment architecture, VM topology, service responsibilities, environment strategy, and future scaling path.
+
+- [Release Flow](docs/release-flow.md)
+  Defines branch-to-deploy flow, pull request flow, CI/CD triggers, branch protection, migration and seeder policy, multi-repo coordination, health checks, rollback, naming convention, environment secrets, and CI test level.

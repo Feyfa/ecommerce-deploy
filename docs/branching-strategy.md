@@ -16,7 +16,7 @@ Only production-ready changes should enter this branch. Production deployments s
 
 `develop-main` is the production gate.
 
-This branch contains changes that are candidates for production. Feature branches should be created from `develop-main` so new work starts from the production-ready code line.
+This branch receives production candidate changes before they are merged into `main`. It is a merge-check gate, not the normal starting point for new feature work.
 
 ### `staging`
 
@@ -60,7 +60,7 @@ Production must not merge from `feature/*-staging`.
 
 `hotfix/*` is used for urgent production fixes.
 
-Hotfix branches should start from `main` or `develop-main`, depending on the current release state.
+Hotfix branches should start from `main` so urgent fixes start from the current production source of truth.
 
 Example:
 
@@ -76,10 +76,10 @@ If the hotfix can merge cleanly into `develop-staging`, this extra branch is not
 
 ## Feature Branch Flow
 
-Every feature starts from `develop-main`.
+Every feature starts from `main`.
 
 ```text
-develop-main
+main
   -> feature/name
   -> feature/name-staging
 ```
@@ -88,6 +88,22 @@ develop-main
 
 `feature/name-staging` is used only for staging integration.
 
+Before opening a production PR, sync the feature branch with the latest `main`:
+
+```text
+main
+  -> feature/name
+```
+
+Before opening a staging PR, sync the staging integration branch with the latest `staging`:
+
+```text
+staging
+  -> feature/name-staging
+```
+
+All sync operations use merge, not rebase.
+
 ## Staging Flow
 
 Use this flow when a feature needs to be tested in staging:
@@ -95,7 +111,7 @@ Use this flow when a feature needs to be tested in staging:
 ```text
 feature/name
   -> feature/name-staging
-  -> merge latest develop-staging into feature/name-staging
+  -> merge latest staging into feature/name-staging
   -> resolve staging conflicts in feature/name-staging
   -> feature/name-staging merges into develop-staging
   -> develop-staging deploys or merges into staging
@@ -103,13 +119,15 @@ feature/name
 
 Conflict resolution for staging happens in `feature/name-staging`, not in `develop-staging` or `staging`.
 
+If a PR from `feature/name-staging` to `develop-staging` still conflicts after normal sync with `staging`, merge the PR target branch `develop-staging` into `feature/name-staging`, resolve the conflict there, commit, and push the feature staging branch again.
+
 ## Production Flow
 
 Use this flow when a feature is ready for production:
 
 ```text
 feature/name
-  -> merge latest develop-main into feature/name
+  -> merge latest main into feature/name
   -> resolve production conflicts in feature/name
   -> feature/name merges into develop-main
   -> develop-main merges into main
@@ -117,6 +135,8 @@ feature/name
 ```
 
 Production must use `feature/name`, not `feature/name-staging`.
+
+If a PR from `feature/name` to `develop-main` still conflicts after normal sync with `main`, merge the PR target branch `develop-main` into `feature/name`, resolve the conflict there, commit, and push the feature branch again.
 
 ## Fix Rules During Staging
 
@@ -143,6 +163,8 @@ main or develop-main
   -> main
   -> production deploy
 ```
+
+This keeps hotfixes based on the current production source of truth.
 
 After production is fixed, bring the hotfix back to staging:
 
@@ -172,6 +194,8 @@ Rules:
 - `develop-staging`, `staging`, `develop-main`, and `main` are not used as manual conflict resolution workspaces.
 - PMs and reviewers should only merge branches that are clean and ready.
 - If another pull request is merged first and a branch becomes conflicted, the developer who owns the branch updates it and resolves the conflict.
+- Normal feature sync uses `main` for `feature/*` and `staging` for `feature/*-staging`.
+- If the PR still conflicts after normal sync, merge the PR target branch into the feature branch and resolve the conflict there.
 
 ## Release Safety Rules
 
