@@ -1,0 +1,50 @@
+name: Sync Deploy Staging
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: sync-deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync deploy repository on staging
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+
+    steps:
+      - name: Connect GitHub runner to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Configure SSH access
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/ecommerce_staging_deploy
+          chmod 600 ~/.ssh/ecommerce_staging_deploy
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync deploy repository on staging over SSH
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          set -eu
+          ssh -i ~/.ssh/ecommerce_staging_deploy -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" <<'EOF'
+          set -eu
+
+          cd /opt/ecommerce/deploy
+          git fetch origin
+          git checkout main
+          git pull --ff-only origin main
+          git branch --set-upstream-to=origin/main main
+          git log -1 --oneline
+          EOF

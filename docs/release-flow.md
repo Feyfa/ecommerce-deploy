@@ -245,6 +245,8 @@ Manual deployment workflows live in the deploy repository:
 ```text
 .github/workflows/deploy-staging.yml
 .github/workflows/deploy-production.yml
+.github/workflows/sync-deploy-staging.yml
+.github/workflows/sync-deploy-production.yml
 .github/workflows/migrate-staging.yml
 .github/workflows/migrate-production.yml
 .github/workflows/seed-staging.yml
@@ -254,6 +256,8 @@ Manual deployment workflows live in the deploy repository:
 The staging workflow pulls frontend and backend from `origin/staging`, pulls deploy from `origin/main`, runs `./scripts/deploy-staging.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
 
 The production workflow pulls frontend and backend from `origin/main`, pulls deploy from `origin/main`, runs `./scripts/deploy-production.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
+
+The manual deploy sync workflows connect to the correct VM, pull only the `deploy` repository from `origin/main`, and print the latest synced commit without rebuilding containers or applying runtime changes.
 
 The manual migration workflows connect to the correct VM and run `php artisan migrate --force` against the already-running backend container from the latest deploy.
 
@@ -372,6 +376,8 @@ manual Migrate Production workflow when required
 manual Seed Production workflow
 smoke test
 ```
+
+If only the deploy repository itself changed and the change does not need an immediate runtime apply, use the matching `Sync Deploy` workflow to update `/opt/ecommerce/deploy` on the target VM without touching frontend, backend, or running containers.
 
 ## Multi-Repo Coordination
 
