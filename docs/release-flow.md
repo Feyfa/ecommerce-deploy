@@ -245,11 +245,19 @@ Manual deployment workflows live in the deploy repository:
 ```text
 .github/workflows/deploy-staging.yml
 .github/workflows/deploy-production.yml
+.github/workflows/migrate-staging.yml
+.github/workflows/migrate-production.yml
+.github/workflows/seed-staging.yml
+.github/workflows/seed-production.yml
 ```
 
 The staging workflow pulls frontend and backend from `origin/staging`, pulls deploy from `origin/main`, runs `./scripts/deploy-staging.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
 
 The production workflow pulls frontend and backend from `origin/main`, pulls deploy from `origin/main`, runs `./scripts/deploy-production.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
+
+The manual migration workflows connect to the correct VM and run `php artisan migrate --force` against the already-running backend container from the latest deploy.
+
+The manual seeder workflows connect to the correct VM, require a `seeder_class` input, validate that the requested seeder class exists in `backend/database/seeders`, and then run `php artisan db:seed --class=... --force`.
 
 ## Branch Protection Rules
 
@@ -317,7 +325,7 @@ always skip seeder
 Production deploy:
 
 ```text
-manual deploy workflow
+manual Deploy Production workflow
 migration runs only when selected or approved
 always skip seeder
 ```
@@ -350,8 +358,8 @@ Staging flow when seed data is required:
 ```text
 merge to staging
 manual Deploy Staging workflow
-manual migration command when required
-manual seeder workflow for staging
+manual Migrate Staging workflow when required
+manual Seed Staging workflow
 QA test
 ```
 
@@ -359,8 +367,9 @@ Production flow when seed data is required:
 
 ```text
 merge to main
-manual production deploy
-manual seeder workflow for production
+manual Deploy Production workflow
+manual Migrate Production workflow when required
+manual Seed Production workflow
 smoke test
 ```
 

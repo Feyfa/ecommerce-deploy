@@ -1,0 +1,51 @@
+name: Migrate Production
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Run production migrations
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+
+    steps:
+      - name: Connect GitHub runner to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Configure SSH access
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/ecommerce_production_deploy
+          chmod 600 ~/.ssh/ecommerce_production_deploy
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Run production migrations over SSH
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+        run: |
+          set -eu
+          ssh -i ~/.ssh/ecommerce_production_deploy -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" <<'EOF'
+          set -eu
+
+          cd /opt/ecommerce/deploy
+
+          docker compose \
+            --env-file env/production/backend.env \
+            --env-file env/production/frontend.env \
+            -f compose/compose.production.yml \
+            exec backend-php php artisan migrate --force
+          EOF

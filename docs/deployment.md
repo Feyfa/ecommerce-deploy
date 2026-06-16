@@ -41,11 +41,11 @@ Frontend: http://localhost:8080
 Backend:  http://localhost:8081
 ```
 
-Run migrations after the containers are up:
+Run migrations and any required specific seeders after the containers are up:
 
 ```bash
 docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan migrate --force
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --force
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
 ```
 
 Stop the local validation stack:
@@ -168,9 +168,17 @@ The deploy repository also provides manual GitHub Actions workflows:
 ```text
 Deploy Staging
 Deploy Production
+Migrate Staging
+Migrate Production
+Seed Staging
+Seed Production
 ```
 
 These workflows replace the manual SSH runbook with a GitHub "Run workflow" button. They connect the GitHub-hosted runner to the private tailnet with Tailscale, SSH into the target VM, pull the correct application branches, pull the deploy repository, run the deployment script, print Docker Compose status, and run local health checks for frontend and backend.
+
+`Migrate Staging` and `Migrate Production` do not pull code again. They run `php artisan migrate --force` against the backend container created by the latest successful deploy in the matching environment.
+
+`Seed Staging` and `Seed Production` do not pull code again. They require a `seeder_class` input, validate that the requested class exists in `backend/database/seeders`, and run `php artisan db:seed --class=... --force` against the backend container created by the latest successful deploy.
 
 Operational branch targets:
 
@@ -186,18 +194,35 @@ Deploy Production:
   deploy origin/main
 ```
 
+Database workflow targets:
+
+```text
+Migrate Staging:
+  deploy existing staging containers only
+
+Migrate Production:
+  deploy existing production containers only
+
+Seed Staging:
+  deploy existing staging containers only
+
+Seed Production:
+  deploy existing production containers only
+```
+
 The workflows are intentionally manual at this stage. Merging to `staging` or `main` prepares the code for deployment, but the deployment starts only when a release owner opens the deploy repository Actions page and runs the matching workflow.
 
 Manual workflow steps:
 
 ```text
 1. Open GitHub Actions in the deploy repository.
-2. Select Deploy Staging or Deploy Production.
+2. Select the workflow that matches the release action.
 3. Click Run workflow.
-4. Wait until the workflow status is Success.
-5. Confirm the Docker Compose status step completed.
-6. Confirm both local VM health checks completed.
-7. Open the staging or production frontend and backend URLs from a browser.
+4. Fill the `seeder_class` input when running a seed workflow.
+5. Wait until the workflow status is Success.
+6. Confirm the Docker Compose status step completed for deploy workflows.
+7. Confirm both local VM health checks completed for deploy workflows.
+8. Open the staging or production frontend and backend URLs from a browser when the release includes code changes.
 ```
 
 Expected workflow health checks:
@@ -277,7 +302,7 @@ docker compose --env-file env/staging/backend.env --env-file env/staging/fronten
 Run staging seeders only when the seed data is intentionally needed:
 
 ```bash
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --force
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
 ```
 
 ### Deploy Production
@@ -311,7 +336,7 @@ docker compose --env-file env/production/backend.env --env-file env/production/f
 Do not run production seeders on every deploy. Seed production only during initial setup or when the specific seeder is known to be idempotent and safe:
 
 ```bash
-docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml exec backend-php php artisan db:seed --force
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
 ```
 
 ### Deployment Scope

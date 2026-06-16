@@ -1,0 +1,69 @@
+name: Seed Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      seeder_class:
+        description: Seeder class name from backend/database/seeders
+        required: true
+        type: string
+
+concurrency:
+  group: seed-staging
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Run staging seeder
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+    env:
+      SEEDER_CLASS: ${{ inputs.seeder_class }}
+
+    steps:
+      - name: Connect GitHub runner to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Configure SSH access
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/ecommerce_staging_deploy
+          chmod 600 ~/.ssh/ecommerce_staging_deploy
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Run staging seeder over SSH
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          set -eu
+          ssh -i ~/.ssh/ecommerce_staging_deploy -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" \
+            "SEEDER_CLASS='$SEEDER_CLASS' sh -s" <<'EOF'
+          set -eu
+
+          cd /opt/ecommerce/deploy
+
+          if [ ! -f "/opt/ecommerce/backend/database/seeders/${SEEDER_CLASS}.php" ]; then
+            echo "Seeder class file not found: ${SEEDER_CLASS}"
+            exit 1
+          fi
+
+          if ! grep -q "class ${SEEDER_CLASS}" "/opt/ecommerce/backend/database/seeders/${SEEDER_CLASS}.php"; then
+            echo "Seeder class declaration not found: ${SEEDER_CLASS}"
+            exit 1
+          fi
+
+          docker compose \
+            --env-file env/staging/backend.env \
+            --env-file env/staging/frontend.env \
+            -f compose/compose.staging.yml \
+            exec backend-php php artisan db:seed --class="${SEEDER_CLASS}" --force
+          EOF
