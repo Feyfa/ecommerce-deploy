@@ -251,6 +251,66 @@ Seed ...:
   run a specific Laravel seeder on the existing deployed backend container
 ```
 
+## Workflow SOP
+
+Use the workflows with the following daily operating rules.
+
+`Sync Deploy Staging`
+
+- Use this when only the `deploy` repository changed and staging should receive the latest deploy repository files without applying runtime changes.
+- Do not use this to pull frontend or backend code.
+- Do not use this to rebuild containers, restart services, run migrations, or run seeders.
+
+`Sync Deploy Production`
+
+- Use this when only the `deploy` repository changed and production should receive the latest deploy repository files without applying runtime changes.
+- Do not use this to pull frontend or backend code.
+- Do not use this to rebuild containers, restart services, run migrations, or run seeders.
+
+`Deploy Staging`
+
+- Use this when frontend, backend, or deploy changes must be applied to the staging runtime.
+- This workflow updates frontend, backend, and deploy repositories on the staging VM and then applies the deployment.
+
+`Deploy Production`
+
+- Use this when frontend, backend, or deploy changes must be applied to the production runtime.
+- This workflow updates frontend, backend, and deploy repositories on the production VM and then applies the deployment.
+
+`Migrate Staging`
+
+- Use this after `Deploy Staging` when the release contains backend migration changes.
+- Do not use this as a code sync workflow.
+
+`Migrate Production`
+
+- Use this after `Deploy Production` when the release contains backend migration changes.
+- Do not use this as a code sync workflow.
+
+`Seed Staging`
+
+- Use this after deploy when staging needs a specific seeder to run.
+- Always provide the required `seeder_class` input.
+- Do not use a global `db:seed` workflow pattern for staging.
+
+`Seed Production`
+
+- Use this only when production needs a specific seeder that is known to be safe to run.
+- Always provide the required `seeder_class` input.
+- Do not use a global `db:seed` workflow pattern for production.
+
+Quick decision guide:
+
+- If only the `deploy` repository changed and no runtime apply is needed yet, use `Sync Deploy ...`.
+- If frontend or backend changed and the application must be updated on the server, use `Deploy ...`.
+- If backend migrations changed, use `Deploy ...` and then `Migrate ...`.
+- If specific seed data is needed, use `Deploy ...` when code changed and then run `Seed ...` with the required `seeder_class`.
+
+Safe release order:
+
+- Staging: `Sync Deploy Staging` when needed, `Deploy Staging`, `Migrate Staging` when needed, `Seed Staging` when needed, then QA.
+- Production: `Sync Deploy Production` when needed, `Deploy Production`, `Migrate Production` when needed, `Seed Production` when needed, then smoke test.
+
 Expected workflow health checks:
 
 ```text
