@@ -144,7 +144,7 @@ Local stack validation:
 
 `deploy-production.sh` starts or updates the production stack. There is no production stop script by default because stopping production should be a deliberate manual operation.
 
-Both deploy scripts restart `reverse-proxy` after `docker compose up -d --build`. This refreshes the Nginx upstream container DNS after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+Both deploy scripts restart `backend-nginx` and `reverse-proxy` after `docker compose up -d --build`. This refreshes both Nginx upstream layers after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
 
 `stop-staging.sh` stops the staging stack and is mainly intended for local stack validation or an intentional staging stop.
 
