@@ -172,6 +172,43 @@ Deploy Production
 
 These workflows replace the manual SSH runbook with a GitHub "Run workflow" button. They connect the GitHub-hosted runner to the private tailnet with Tailscale, SSH into the target VM, pull the correct application branches, pull the deploy repository, run the deployment script, print Docker Compose status, and run local health checks for frontend and backend.
 
+Operational branch targets:
+
+```text
+Deploy Staging:
+  frontend origin/staging
+  backend origin/staging
+  deploy origin/main
+
+Deploy Production:
+  frontend origin/main
+  backend origin/main
+  deploy origin/main
+```
+
+The workflows are intentionally manual at this stage. Merging to `staging` or `main` prepares the code for deployment, but the deployment starts only when a release owner opens the deploy repository Actions page and runs the matching workflow.
+
+Manual workflow steps:
+
+```text
+1. Open GitHub Actions in the deploy repository.
+2. Select Deploy Staging or Deploy Production.
+3. Click Run workflow.
+4. Wait until the workflow status is Success.
+5. Confirm the Docker Compose status step completed.
+6. Confirm both local VM health checks completed.
+7. Open the staging or production frontend and backend URLs from a browser.
+```
+
+Expected workflow health checks:
+
+```text
+http://localhost:8080
+http://localhost:8081
+```
+
+These health checks run from inside the target VM through SSH, so `localhost` means the staging or production VM, not the GitHub-hosted runner.
+
 Required repository secrets:
 
 ```text

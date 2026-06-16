@@ -129,7 +129,7 @@ Staging flow for frontend and backend:
 feature/*-staging
   -> develop-staging
   -> staging
-  -> CI/CD deploy to the staging VM
+  -> manual Deploy Staging workflow from the deploy repository
 ```
 
 Production flow for frontend and backend:
@@ -138,12 +138,12 @@ Production flow for frontend and backend:
 feature/*
   -> develop-main
   -> main
-  -> CI/CD deploy to the production VM
+  -> manual Deploy Production workflow from the deploy repository
 ```
 
-`develop-staging` is the preparation and merge-check branch before `staging`. `staging` is the branch that triggers staging deployment.
+`develop-staging` is the preparation and merge-check branch before `staging`. `staging` is the branch that the staging deployment workflow pulls from.
 
-`develop-main` is the preparation and merge-check branch before `main`. `main` is the branch that is used for production deployment.
+`develop-main` is the preparation and merge-check branch before `main`. `main` is the branch that the production deployment workflow pulls from.
 
 After a staging release, `develop-staging` and `staging` should be at the same commit.
 
@@ -172,7 +172,7 @@ Pull requests are used for:
 - conflict checks;
 - approval before merge.
 
-CI runs on pull requests to validate code before it enters the target branch. CD runs after a deploy branch changes, such as `staging` or `main`.
+CI runs on pull requests to validate code before it enters the target branch. Deployment is started manually from the deploy repository after the target branch is ready.
 
 Staging PR flow:
 
@@ -184,7 +184,7 @@ feature/JD-TASK-1-account-security-staging
   -> merge to develop-staging
   -> PR develop-staging to staging
   -> merge to staging
-  -> CD deploys staging
+  -> run Deploy Staging manually from the deploy repository
 ```
 
 Production PR flow:
@@ -201,7 +201,7 @@ feature/JD-TASK-1-account-security
   -> manual production deploy
 ```
 
-Staging deploy can be run manually from the deploy repository workflow after merge to `staging`. A future improvement can make this automatic after the process is stable.
+Staging deploy is run manually from the deploy repository workflow after merge to `staging`. A future improvement can make this automatic after the process is stable.
 
 Production deploy should use manual control or approval because it can affect real users, production data, payments, downtime, migrations, and seeders.
 
@@ -220,15 +220,15 @@ main
 
 At this initial stage, a normal push to `feature/**` or `hotfix/**` does not run CI. CI runs when a PR is created or updated, before the PM merges it.
 
-Staging CD trigger:
+Staging deploy trigger:
 
 ```text
-push or merge to staging
+manual Deploy Staging workflow
 ```
 
-After `staging` changes, staging CD runs automatically. GitHub Actions enters the staging VM, pulls the required repositories, runs the staging deploy script, runs staging migrations, and performs health checks.
+After `staging` changes, a release owner starts the manual Deploy Staging workflow from the deploy repository. GitHub Actions enters the staging VM, pulls the required repositories, runs the staging deploy script, prints Docker Compose status, and performs health checks.
 
-Production CD should not fully auto-deploy from a push to `main` at the initial stage.
+Production deploy should not fully auto-deploy from a push to `main` at the initial stage.
 
 Recommended initial production flow:
 
@@ -236,11 +236,11 @@ Recommended initial production flow:
 develop-main -> main
 ```
 
-The merge to `main` makes the code production-ready. Production deploy does not run until the PM or release owner starts the manual production workflow.
+The merge to `main` makes the code production-ready. Production deploy does not run until the PM or release owner starts the manual Deploy Production workflow.
 
 A more mature future option is to auto-trigger the production workflow when `main` changes, but stop at a GitHub Environment approval gate before the deploy job runs.
 
-Initial manual deployment workflows live in the deploy repository:
+Manual deployment workflows live in the deploy repository:
 
 ```text
 .github/workflows/deploy-staging.yml
@@ -278,7 +278,7 @@ Rules for all protected frontend and backend branches:
 Additional behavior:
 
 - `main`: production deploy remains manual or approval-controlled.
-- `staging`: after merge, staging CD runs automatically.
+- `staging`: after merge, staging deploy is run manually from the deploy repository.
 
 Developers and PMs do not push directly to `main`, `staging`, `develop-main`, or `develop-staging`.
 
@@ -309,8 +309,8 @@ Migrations are tracked by Laravel in the `migrations` table. Seeders do not have
 Staging deploy:
 
 ```text
-auto deploy
-auto migrate
+manual Deploy Staging workflow
+migration runs only when selected or approved
 always skip seeder
 ```
 
@@ -349,7 +349,8 @@ Staging flow when seed data is required:
 
 ```text
 merge to staging
-CD staging auto deploys and migrates
+manual Deploy Staging workflow
+manual migration command when required
 manual seeder workflow for staging
 QA test
 ```
@@ -538,10 +539,15 @@ production
 Each environment stores:
 
 ```text
-TAILSCALE_AUTHKEY
-SSH_HOST
-SSH_USER
-SSH_PRIVATE_KEY
+TS_AUTHKEY
+
+STAGING_SSH_HOST
+STAGING_SSH_USER
+STAGING_SSH_PRIVATE_KEY
+
+PRODUCTION_SSH_HOST
+PRODUCTION_SSH_USER
+PRODUCTION_SSH_PRIVATE_KEY
 ```
 
 Staging host:
@@ -556,11 +562,11 @@ Production host:
 ecommerce-production.tail5028dc.ts.net
 ```
 
-`SSH_USER` is the Linux user used for deployment, such as `jidan` or preferably a dedicated `deploy` user.
+`STAGING_SSH_USER` and `PRODUCTION_SSH_USER` are the Linux users used for deployment, such as `jidan` or preferably dedicated `deploy` users.
 
-`SSH_PRIVATE_KEY` is the CI/CD-specific private key used to log in to the VM. Add the matching public key to `~/.ssh/authorized_keys` on the target VM.
+`STAGING_SSH_PRIVATE_KEY` and `PRODUCTION_SSH_PRIVATE_KEY` are the CI/CD-specific private keys used to log in to the VMs. Add each matching public key to `~/.ssh/authorized_keys` on the target VM.
 
-`TAILSCALE_AUTHKEY` allows the GitHub Actions runner to enter the tailnet and access the VM Tailscale hostnames.
+`TS_AUTHKEY` allows the GitHub Actions runner to enter the tailnet and access the VM Tailscale hostnames.
 
 The production GitHub Environment should require reviewer approval before the production deploy job runs.
 
