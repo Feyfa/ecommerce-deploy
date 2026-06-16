@@ -161,19 +161,71 @@ The staging and production VMs use the same server-side folder structure:
 
 The Compose files in `/opt/ecommerce/deploy` build from the sibling `/opt/ecommerce/frontend` and `/opt/ecommerce/backend` repositories. Pushing to GitHub does not update a VM by itself; pull the changed repositories on the VM before running the deploy script.
 
+## GitHub Actions Manual Deployment
+
+The deploy repository also provides manual GitHub Actions workflows:
+
+```text
+Deploy Staging
+Deploy Production
+```
+
+These workflows replace the manual SSH runbook with a GitHub "Run workflow" button. They connect the GitHub-hosted runner to the private tailnet with Tailscale, SSH into the target VM, pull the correct application branches, pull the deploy repository, run the deployment script, print Docker Compose status, and run local health checks for frontend and backend.
+
+Required repository secrets:
+
+```text
+TS_AUTHKEY
+
+STAGING_SSH_HOST
+STAGING_SSH_USER
+STAGING_SSH_PRIVATE_KEY
+
+PRODUCTION_SSH_HOST
+PRODUCTION_SSH_USER
+PRODUCTION_SSH_PRIVATE_KEY
+```
+
+`TS_AUTHKEY` is a reusable ephemeral Tailscale auth key. It lets the temporary GitHub Actions runner join the private tailnet during deployment and disappear again after the workflow finishes.
+
+Recommended values:
+
+```text
+STAGING_SSH_HOST=ecommerce-staging.tail5028dc.ts.net
+STAGING_SSH_USER=jidan
+
+PRODUCTION_SSH_HOST=ecommerce-production.tail5028dc.ts.net
+PRODUCTION_SSH_USER=jidan
+```
+
+`STAGING_SSH_PRIVATE_KEY` and `PRODUCTION_SSH_PRIVATE_KEY` must contain private keys whose public keys are allowed in the matching VM user's `~/.ssh/authorized_keys`.
+
+Use GitHub Environments for additional protection:
+
+```text
+staging
+production
+```
+
+The production environment should require manual approval before the job can run.
+
 ### Deploy Staging
 
 ```bash
 ssh ecommerce-staging
 
 cd /opt/ecommerce/frontend
-git pull origin main
+git fetch origin
+git checkout staging
+git pull --ff-only origin staging
 
 cd /opt/ecommerce/backend
-git pull origin main
+git fetch origin
+git checkout staging
+git pull --ff-only origin staging
 
 cd /opt/ecommerce/deploy
-git pull origin main
+git pull --ff-only origin main
 
 ./scripts/deploy-staging.sh
 docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml ps
@@ -197,13 +249,17 @@ docker compose --env-file env/staging/backend.env --env-file env/staging/fronten
 ssh ecommerce-production
 
 cd /opt/ecommerce/frontend
-git pull origin main
+git fetch origin
+git checkout main
+git pull --ff-only origin main
 
 cd /opt/ecommerce/backend
-git pull origin main
+git fetch origin
+git checkout main
+git pull --ff-only origin main
 
 cd /opt/ecommerce/deploy
-git pull origin main
+git pull --ff-only origin main
 
 ./scripts/deploy-production.sh
 docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml ps

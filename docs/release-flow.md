@@ -201,7 +201,7 @@ feature/JD-TASK-1-account-security
   -> manual production deploy
 ```
 
-Staging deploy can run automatically after merge to `staging` because staging is the validation environment and has lower risk.
+Staging deploy can be run manually from the deploy repository workflow after merge to `staging`. A future improvement can make this automatic after the process is stable.
 
 Production deploy should use manual control or approval because it can affect real users, production data, payments, downtime, migrations, and seeders.
 
@@ -239,6 +239,17 @@ develop-main -> main
 The merge to `main` makes the code production-ready. Production deploy does not run until the PM or release owner starts the manual production workflow.
 
 A more mature future option is to auto-trigger the production workflow when `main` changes, but stop at a GitHub Environment approval gate before the deploy job runs.
+
+Initial manual deployment workflows live in the deploy repository:
+
+```text
+.github/workflows/deploy-staging.yml
+.github/workflows/deploy-production.yml
+```
+
+The staging workflow pulls frontend and backend from `origin/staging`, pulls deploy from `origin/main`, runs `./scripts/deploy-staging.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
+
+The production workflow pulls frontend and backend from `origin/main`, pulls deploy from `origin/main`, runs `./scripts/deploy-production.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
 
 ## Branch Protection Rules
 

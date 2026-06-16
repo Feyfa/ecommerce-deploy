@@ -1,0 +1,76 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production stack
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+
+    steps:
+      - name: Connect GitHub runner to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Configure SSH access
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/ecommerce_production_deploy
+          chmod 600 ~/.ssh/ecommerce_production_deploy
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy production over SSH
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+        run: |
+          set -eu
+          ssh -i ~/.ssh/ecommerce_production_deploy -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" <<'EOF'
+          set -eu
+
+          cd /opt/ecommerce/frontend
+          git fetch origin
+          git checkout main
+          git pull --ff-only origin main
+          git branch --set-upstream-to=origin/main main
+
+          cd /opt/ecommerce/backend
+          git fetch origin
+          git checkout main
+          git pull --ff-only origin main
+          git branch --set-upstream-to=origin/main main
+
+          cd /opt/ecommerce/deploy
+          git pull --ff-only origin main
+          ./scripts/deploy-production.sh
+
+          docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml ps
+
+          for url in http://localhost:8080 http://localhost:8081; do
+            for attempt in 1 2 3 4 5; do
+              if curl --fail --silent --show-error --max-time 10 "$url" > /dev/null; then
+                break
+              fi
+
+              if [ "$attempt" -eq 5 ]; then
+                echo "Health check failed for $url"
+                exit 1
+              fi
+
+              sleep 3
+            done
+          done
+          EOF
