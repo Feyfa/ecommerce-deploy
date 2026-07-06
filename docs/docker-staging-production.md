@@ -163,26 +163,27 @@ Laravel Reverb or another documented Laravel-compatible websocket runtime.
 
 The websocket service should run separately from the backend API service because websocket connections are long-running and have different scaling and deployment behavior.
 
-## Future Public Domain Plan
+## Public Domain Plan
 
 One VM can serve multiple domains or subdomains when the application is ready for public DNS and HTTPS. DNS records can point multiple hostnames to the same VM IP address, and the reverse proxy decides which container receives each request.
 
-This section is a future public-access plan. The first VM deployment can stay private through Tailscale and ports `8080` and `8081`.
+The first public domain target uses `tokshop.click`. When the home server is behind CGNAT, public HTTPS traffic should be terminated by Cloudflare Tunnel or another external reverse proxy path. The Docker stack can keep serving HTTP on ports `8080` and `8081` behind that public access layer.
 
-Suggested staging domains:
+Staging domains:
 
 ```text
-staging-app.example.com
-staging-api.example.com
-staging-ws.example.com
+staging.tokshop.click
+staging-api.tokshop.click
+staging-ws.tokshop.click
 ```
 
-Suggested production domains:
+Production domains:
 
 ```text
-app.example.com
-api.example.com
-ws.example.com
+tokshop.click
+www.tokshop.click
+api.tokshop.click
+ws.tokshop.click
 ```
 
 The websocket domain is reserved for the future chat feature. It does not need to be active until the websocket service exists.
@@ -221,7 +222,7 @@ APP_URL=http://staging-vm:8081
 FRONTEND_URL=http://staging-vm:8080
 ```
 
-This is a private-access deployment mode. Devices must join the same tailnet before they can open the application. Public HTTPS domains can be added later when the application needs public access.
+This is a private-access deployment mode. Devices must join the same tailnet before they can open the application. Public HTTPS domains use the `tokshop.click` hostnames from the public domain plan.
 
 ## Environment File Strategy
 

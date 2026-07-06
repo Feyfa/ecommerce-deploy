@@ -124,6 +124,35 @@ Production backend:
   http://ecommerce-production.tail5028dc.ts.net:8081
 ```
 
+## Public Domain Access
+
+The public domain target for this deployment is `tokshop.click`.
+
+Staging public URLs:
+
+```text
+Frontend:
+  https://staging.tokshop.click
+
+Backend:
+  https://staging-api.tokshop.click
+```
+
+Production public URLs:
+
+```text
+Frontend:
+  https://tokshop.click
+
+Frontend www alias:
+  https://www.tokshop.click
+
+Backend:
+  https://api.tokshop.click
+```
+
+If the Proxmox home server is behind CGNAT, use Cloudflare Tunnel or another external reverse proxy path instead of direct router port forwarding. The tunnel can terminate public HTTPS and forward requests to the existing VM HTTP ports.
+
 ## Script Usage
 
 The deployment scripts are shared between local stack validation and real VM deployment.
@@ -486,4 +515,4 @@ Production requires real values for `APP_KEY`, `DB_PASSWORD`, and `POSTGRES_PASS
 
 ## HTTPS
 
-The first implementation uses HTTP so the Docker stack can be validated safely and accessed privately through Tailscale. HTTPS with Nginx-compatible certificates and Certbot should be added after the stack is stable on the VM and the application needs public domain access.
+The Docker stack keeps HTTP internally so it can be validated safely through Tailscale and behind a public access layer. Public HTTPS should be terminated by Cloudflare Tunnel, a VPS reverse proxy, or Nginx-compatible certificates if the server has a real public IP and deliberate port forwarding.
