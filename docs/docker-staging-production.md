@@ -181,7 +181,6 @@ Production domains:
 
 ```text
 tokshop.click
-www.tokshop.click
 api.tokshop.click
 ws.tokshop.click
 ```

@@ -144,9 +144,6 @@ Production public URLs:
 Frontend:
   https://tokshop.click
 
-Frontend www alias:
-  https://www.tokshop.click
-
 Backend:
   https://api.tokshop.click
 ```
@@ -173,7 +170,16 @@ Local stack validation:
 
 `deploy-production.sh` starts or updates the production stack. There is no production stop script by default because stopping production should be a deliberate manual operation.
 
-Both deploy scripts restart `backend-nginx` and `reverse-proxy` after `docker compose up -d --build`. This refreshes both Nginx upstream layers after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+Both deploy scripts force recreate `backend-nginx` and `reverse-proxy` after `docker compose up -d --build`. This refreshes both Nginx upstream layers after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+
+If a `502 Bad Gateway` response appears after a manual rebuild, force recreate the Nginx layer that owns the stale upstream reference:
+
+```sh
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml up -d --force-recreate backend-nginx reverse-proxy
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml up -d --force-recreate backend-nginx reverse-proxy
+```
+
+Use `backend-nginx` for API or PHP-FPM upstream issues and `reverse-proxy` for public frontend or public API routing issues.
 
 `stop-staging.sh` stops the staging stack and is mainly intended for local stack validation or an intentional staging stop.
 
