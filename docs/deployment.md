@@ -124,6 +124,32 @@ Production backend:
   http://ecommerce-production.tail5028dc.ts.net:8081
 ```
 
+## Public Domain Access
+
+The public domain target for this deployment is `tokshop.click`.
+
+Staging public URLs:
+
+```text
+Frontend:
+  https://staging.tokshop.click
+
+Backend:
+  https://staging-api.tokshop.click
+```
+
+Production public URLs:
+
+```text
+Frontend:
+  https://tokshop.click
+
+Backend:
+  https://api.tokshop.click
+```
+
+If the Proxmox home server is behind CGNAT, use Cloudflare Tunnel or another external reverse proxy path instead of direct router port forwarding. The tunnel can terminate public HTTPS and forward requests to the existing VM HTTP ports.
+
 ## Script Usage
 
 The deployment scripts are shared between local stack validation and real VM deployment.
@@ -144,7 +170,16 @@ Local stack validation:
 
 `deploy-production.sh` starts or updates the production stack. There is no production stop script by default because stopping production should be a deliberate manual operation.
 
-Both deploy scripts restart `backend-nginx` and `reverse-proxy` after `docker compose up -d --build`. This refreshes both Nginx upstream layers after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+Both deploy scripts force recreate `backend-nginx` and `reverse-proxy` after `docker compose up -d --build`. This refreshes both Nginx upstream layers after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+
+If a `502 Bad Gateway` response appears after a manual rebuild, force recreate the Nginx layer that owns the stale upstream reference:
+
+```sh
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml up -d --force-recreate backend-nginx reverse-proxy
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml up -d --force-recreate backend-nginx reverse-proxy
+```
+
+Use `backend-nginx` for API or PHP-FPM upstream issues and `reverse-proxy` for public frontend or public API routing issues.
 
 `stop-staging.sh` stops the staging stack and is mainly intended for local stack validation or an intentional staging stop.
 
@@ -486,4 +521,4 @@ Production requires real values for `APP_KEY`, `DB_PASSWORD`, and `POSTGRES_PASS
 
 ## HTTPS
 
-The first implementation uses HTTP so the Docker stack can be validated safely and accessed privately through Tailscale. HTTPS with Nginx-compatible certificates and Certbot should be added after the stack is stable on the VM and the application needs public domain access.
+The Docker stack keeps HTTP internally so it can be validated safely through Tailscale and behind a public access layer. Public HTTPS should be terminated by Cloudflare Tunnel, a VPS reverse proxy, or Nginx-compatible certificates if the server has a real public IP and deliberate port forwarding.
