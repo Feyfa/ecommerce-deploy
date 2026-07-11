@@ -73,6 +73,28 @@ Production uses the same pattern under `env/production`.
 
 Set a real `APP_KEY` in each `backend.env` before starting staging or production. Do not leave it empty outside the committed `.example` files.
 
+Clerk requires environment-specific frontend and backend credentials:
+
+```env
+# frontend.env - public values compiled into the Vite bundle
+VITE_CLERK_PUBLISHABLE_KEY=<environment-publishable-key>
+VITE_CLERK_SIGN_IN_URL=/login
+VITE_CLERK_SIGN_UP_URL=/register
+
+# backend.env - private runtime value
+CLERK_SECRET_KEY=<environment-secret-key>
+```
+
+Use keys from the matching Clerk production instance for each environment.
+Never place `CLERK_SECRET_KEY` in `frontend.env`, expose it through a `VITE_`
+variable, or commit a real Clerk key to Git.
+
+Docker Compose passes the public Clerk values to the frontend build because
+Vite compiles them into static assets. The Compose configuration fails early
+when `VITE_CLERK_PUBLISHABLE_KEY` is missing, preventing a deployment with an
+unusable authentication bundle. `CLERK_SECRET_KEY` is loaded only into the
+backend PHP container through `backend.env`.
+
 ## Private VM Access With Tailscale
 
 The first VM deployment can use Tailscale as the private access path for staging and personal production testing.

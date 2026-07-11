@@ -126,7 +126,13 @@ feature/*-staging -> main
 Staging flow for frontend and backend:
 
 ```text
-feature/*-staging
+complete code, tests, environment examples, and affected docs in feature/*
+  -> merge latest main into feature/*
+  -> resolve conflicts and validate feature/*
+  -> commit and push feature/*
+  -> merge feature/* into feature/*-staging
+  -> merge latest staging into feature/*-staging
+  -> feature/*-staging
   -> develop-staging
   -> staging
   -> manual Deploy Staging workflow from the deploy repository
@@ -135,11 +141,26 @@ feature/*-staging
 Production flow for frontend and backend:
 
 ```text
-feature/*
+complete code, tests, environment examples, and affected docs in feature/*
+  -> merge latest main into feature/*
+  -> resolve conflicts and validate feature/*
+  -> commit and push feature/*
+  -> feature/*
   -> develop-main
   -> main
   -> manual Deploy Production workflow from the deploy repository
 ```
+
+Do not open a staging PR directly from `feature/*`. The staging integration
+branch is mandatory even when GitHub reports that `feature/*` can merge cleanly
+into `develop-staging`. Its purpose is not only conflict resolution; it also
+keeps staging synchronization out of the production candidate branch.
+
+Before creating or refreshing `feature/*-staging`, review whether the latest
+feature behavior requires documentation changes. Make required documentation
+changes in `feature/*`, then merge the updated feature branch into
+`feature/*-staging`. If no documentation is affected, do not create an empty or
+unrelated documentation change merely for the release process.
 
 `develop-staging` is the preparation and merge-check branch before `staging`. `staging` is the branch that the staging deployment workflow pulls from.
 

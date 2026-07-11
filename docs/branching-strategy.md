@@ -88,7 +88,32 @@ main
 
 `feature/name-staging` is used only for staging integration.
 
-Before opening a production PR, sync the feature branch with the latest `main`:
+### Source Branch Completion Rule
+
+Before creating or updating `feature/name-staging`, finish every intended
+feature change in `feature/name` first, including application code, tests,
+environment examples, build integration, affected documentation, and fixes
+found during local review.
+
+Commit and push those changes to `feature/name` before carrying them into the
+staging integration branch. Do not create the staging branch merely because the
+feature is expected to go to staging later, and do not use
+`feature/name-staging` as the primary workspace for unfinished feature work.
+
+When `feature/name-staging` already exists, merge the latest `feature/name`
+into it after every new source-branch change. Do not recreate the staging branch
+and do not copy individual files manually.
+
+Environment synchronization is mandatory but remains isolated by purpose:
+
+- merge the latest `main` into `feature/name` before preparing either a staging
+  release or a production candidate;
+- merge the latest `staging` into `feature/name-staging` when preparing staging;
+- never merge `staging` into `feature/name` merely to prepare a staging release;
+- never merge `feature/name` directly into `develop-staging` or `staging`.
+
+Before continuing to either staging or production, sync the source feature
+branch with the latest `main`:
 
 ```text
 main
@@ -109,7 +134,8 @@ All sync operations use merge, not rebase.
 Use this flow when a feature needs to be tested in staging:
 
 ```text
-feature/name
+merge latest main into feature/name
+  -> resolve source-branch conflicts and validate feature/name
   -> feature/name-staging
   -> merge latest staging into feature/name-staging
   -> resolve staging conflicts in feature/name-staging
@@ -126,8 +152,7 @@ If a PR from `feature/name-staging` to `develop-staging` still conflicts after n
 Use this flow when a feature is ready for production:
 
 ```text
-feature/name
-  -> merge latest main into feature/name
+merge latest main into feature/name
   -> resolve production conflicts in feature/name
   -> feature/name merges into develop-main
   -> develop-main merges into main
@@ -151,6 +176,12 @@ Then test again in staging.
 This keeps the production candidate branch and the staging integration branch aligned.
 
 If a fix is made directly in `feature/name-staging` because it is a conflict-specific staging fix, the developer must review whether the fix is also needed in `feature/name`.
+
+Documentation follows the same rule as code. If a behavior change makes
+existing documentation incomplete or inaccurate, update the documentation in
+`feature/name` first, commit it, and then merge the feature branch into
+`feature/name-staging`. Leave documentation unchanged only when review confirms
+that it still describes the implementation accurately.
 
 ## Hotfix Flow
 

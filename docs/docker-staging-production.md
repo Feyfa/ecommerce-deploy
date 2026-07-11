@@ -268,6 +268,7 @@ POSTGRES_PASSWORD
 CACHE_DRIVER
 QUEUE_CONNECTION
 SESSION_DRIVER
+CLERK_SECRET_KEY
 ```
 
 Important frontend values include:
@@ -275,11 +276,25 @@ Important frontend values include:
 ```text
 VITE_APP_BACKEND_BASE_URL
 VITE_SYMLINK_FOLDER
+VITE_CLERK_PUBLISHABLE_KEY
+VITE_CLERK_SIGN_IN_URL
+VITE_CLERK_SIGN_UP_URL
 FRONTEND_HTTP_PORT
 BACKEND_HTTP_PORT
 ```
 
-When Clerk, websocket, and production payment settings are added later, their environment variables must be separated between staging and production.
+Clerk settings must be separated between staging and production. The frontend
+publishable key and auth route values are passed into the Vite build as Docker
+build arguments because they are compiled into the static bundle. The Clerk
+secret key is read only by the backend container at runtime and must never be
+exposed through a `VITE_` variable or stored in the frontend image.
+
+Real Clerk keys belong only in the ignored environment files on the matching
+VM. Staging and production must use keys from their respective Clerk production
+instances.
+
+Websocket and production payment settings must also remain separated when they
+are added later.
 
 ## Docker Compose Strategy
 
