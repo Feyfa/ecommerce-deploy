@@ -20,6 +20,9 @@ services:
       args:
         VITE_APP_BACKEND_BASE_URL: ${VITE_APP_BACKEND_BASE_URL:-http://production-vm:8081}
         VITE_SYMLINK_FOLDER: ${VITE_SYMLINK_FOLDER:-storage}
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:?VITE_CLERK_PUBLISHABLE_KEY is required}
+        VITE_CLERK_SIGN_IN_URL: ${VITE_CLERK_SIGN_IN_URL:-/login}
+        VITE_CLERK_SIGN_UP_URL: ${VITE_CLERK_SIGN_UP_URL:-/register}
     image: ecommerce-frontend:production
     env_file:
       - ../env/production/frontend.env
