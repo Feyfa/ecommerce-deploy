@@ -269,6 +269,8 @@ CACHE_DRIVER
 QUEUE_CONNECTION
 SESSION_DRIVER
 CLERK_SECRET_KEY
+CLERK_FEATURE_PASSKEY
+CLERK_FEATURE_TOTP
 ```
 
 Important frontend values include:
@@ -279,9 +281,17 @@ VITE_SYMLINK_FOLDER
 VITE_CLERK_PUBLISHABLE_KEY
 VITE_CLERK_SIGN_IN_URL
 VITE_CLERK_SIGN_UP_URL
+VITE_FEATURE_CLERK_PASSKEY
+VITE_FEATURE_CLERK_TOTP
 FRONTEND_HTTP_PORT
 BACKEND_HTTP_PORT
 ```
+
+Passkey and TOTP capability flags are intentionally disabled in the committed
+staging and production examples. The frontend values are Docker build
+arguments, so changing them requires rebuilding the frontend image. The backend
+values are runtime configuration and keep the Security summary aligned with the
+frontend capability state.
 
 Clerk settings must be separated between staging and production. The frontend
 publishable key and auth route values are passed into the Vite build as Docker

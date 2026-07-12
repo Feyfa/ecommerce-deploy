@@ -23,6 +23,8 @@ services:
         VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:?VITE_CLERK_PUBLISHABLE_KEY is required}
         VITE_CLERK_SIGN_IN_URL: ${VITE_CLERK_SIGN_IN_URL:-/login}
         VITE_CLERK_SIGN_UP_URL: ${VITE_CLERK_SIGN_UP_URL:-/register}
+        VITE_FEATURE_CLERK_PASSKEY: ${VITE_FEATURE_CLERK_PASSKEY:-false}
+        VITE_FEATURE_CLERK_TOTP: ${VITE_FEATURE_CLERK_TOTP:-false}
     image: ecommerce-frontend:production
     env_file:
       - ../env/production/frontend.env
