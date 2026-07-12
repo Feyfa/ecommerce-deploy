@@ -32,12 +32,94 @@ main
   -> feature/JD-TASK-1-account-security
 ```
 
+Before implementation starts, check whether the task branch already exists
+locally or on `origin`. Do not create a task branch from a stale local `main`.
+
+If the task branch does not exist, first confirm that the working tree is safe,
+update `main` with a fast-forward-only pull, and then create the task branch
+locally:
+
+```bash
+git status
+
+git switch main
+git pull --ff-only origin main
+
+git switch -c feature/JD-TASK-1-account-security
+```
+
+Do not push merely because the local task branch has been created. Push after
+the intended implementation has been committed and validated, or when the
+branch is being prepared for the agreed staging or production flow.
+
+If the task branch already exists locally, switch to it and inspect its status:
+
+```bash
+git switch feature/JD-TASK-1-account-security
+git status
+```
+
+If the task branch exists only on `origin`, fetch the latest remote references
+and create a local tracking branch instead of creating another branch for the
+same task:
+
+```bash
+git fetch origin
+git switch --track origin/feature/JD-TASK-1-account-security
+git status
+```
+
 The staging integration branch is created from the main feature branch:
 
 ```text
 feature/JD-TASK-1-account-security
   -> feature/JD-TASK-1-account-security-staging
 ```
+
+Complete, validate, and commit the intended implementation in the main feature
+branch before preparing its staging integration branch. If the staging branch
+does not exist yet, update both long-lived source branches first:
+
+```bash
+git switch main
+git pull --ff-only origin main
+
+git switch staging
+git pull --ff-only origin staging
+
+git switch feature/JD-TASK-1-account-security
+git merge main
+
+git switch -c feature/JD-TASK-1-account-security-staging
+git merge staging
+```
+
+Resolve and validate production-source conflicts in the main feature branch.
+Resolve staging conflicts in the staging integration branch. Push both branches
+only after their merges and relevant validation succeed.
+
+If the staging integration branch already exists, do not recreate it. Refresh
+the long-lived branches, merge `main` into the main feature branch, then carry
+the feature changes and the latest `staging` into the existing staging branch:
+
+```bash
+git switch main
+git pull --ff-only origin main
+
+git switch staging
+git pull --ff-only origin staging
+
+git switch feature/JD-TASK-1-account-security
+git merge main
+
+git switch feature/JD-TASK-1-account-security-staging
+git merge feature/JD-TASK-1-account-security
+git merge staging
+```
+
+This task-branch preparation flow applies to the frontend and backend
+repositories. It does not apply to the deploy repository, which uses only
+`main` as described in the Deploy Repository Flow section.
 
 Normal sync before PR:
 
@@ -449,8 +531,8 @@ After deploy, CI/CD must run health checks to ensure frontend and backend can be
 Initial frontend health check:
 
 ```bash
-curl -f http://ecommerce-staging.tail5028dc.ts.net:8080
-curl -f http://ecommerce-production.tail5028dc.ts.net:8080
+curl -f https://staging.tokshop.click
+curl -f https://tokshop.click
 ```
 
 Backend should expose a lightweight endpoint:
@@ -484,8 +566,8 @@ Keep health checks lightweight because CI/CD and monitoring can call them often.
 Backend health check examples:
 
 ```bash
-curl -f http://ecommerce-staging.tail5028dc.ts.net:8081/api/health
-curl -f http://ecommerce-production.tail5028dc.ts.net:8081/api/health
+curl -f https://staging-api.tokshop.click/api/health
+curl -f https://api.tokshop.click/api/health
 ```
 
 ## Naming Convention

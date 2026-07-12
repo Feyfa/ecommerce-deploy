@@ -95,60 +95,21 @@ when `VITE_CLERK_PUBLISHABLE_KEY` is missing, preventing a deployment with an
 unusable authentication bundle. `CLERK_SECRET_KEY` is loaded only into the
 backend PHP container through `backend.env`.
 
-## Private VM Access With Tailscale
+## Private VM Administration With Tailscale
 
-The first VM deployment can use Tailscale as the private access path for staging and personal production testing.
+Tailscale is the private administration path from GitHub Actions to the staging
+and production VMs. It runs on each VM host, not inside the frontend, backend,
+PostgreSQL, or reverse proxy containers.
 
-Tailscale runs on the VM host, not inside the application containers. Docker still runs the same reverse proxy, frontend, backend, and PostgreSQL services.
-
-When using Tailscale, set the public-facing application URLs to the VM Tailscale IP or MagicDNS hostname after the VM joins the tailnet.
-
-Example staging values:
-
-```env
-# env/staging/frontend.env
-VITE_APP_BACKEND_BASE_URL=http://staging-vm:8081
-
-# env/staging/backend.env
-APP_URL=http://staging-vm:8081
-FRONTEND_URL=http://staging-vm:8080
-```
-
-Use the full MagicDNS hostname or the Tailscale `100.x.x.x` IP if the short hostname does not resolve.
-
-Tailscale access is private. Devices must be connected to the same tailnet before they can access the VM. Public domain and HTTPS setup can be added later when the application needs public access.
-
-The first private production deployment follows the same port shape:
-
-```text
-Production frontend:
-  http://production-vm:8080
-
-Production backend:
-  http://production-vm:8081
-```
-
-Replace `staging-vm` or `production-vm` with the real MagicDNS hostname or Tailscale IP on each VM.
-
-Current private VM URLs:
-
-```text
-Staging frontend:
-  http://ecommerce-staging.tail5028dc.ts.net:8080
-
-Staging backend:
-  http://ecommerce-staging.tail5028dc.ts.net:8081
-
-Production frontend:
-  http://ecommerce-production.tail5028dc.ts.net:8080
-
-Production backend:
-  http://ecommerce-production.tail5028dc.ts.net:8081
-```
+The Tailscale MagicDNS hostnames are SSH targets for deployment automation.
+They are not the public application URLs. The exact hostnames and required
+GitHub secrets are documented under GitHub Actions Manual Deployment.
 
 ## Public Domain Access
 
-The public domain target for this deployment is `tokshop.click`.
+The public application domain for this deployment is `tokshop.click`. Users,
+browser smoke tests, and public health checks should use these URLs instead of
+the private Tailscale SSH hostnames.
 
 Staging public URLs:
 

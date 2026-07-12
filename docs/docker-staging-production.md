@@ -75,11 +75,13 @@ The deployment stack is expected to use these services.
 
 ### Reverse Proxy
 
-The reverse proxy routes incoming traffic to the correct container. The first private VM deployment uses HTTP over Tailscale; public HTTPS termination can be added later when public domain access is needed.
+The reverse proxy routes incoming traffic to the correct container. Containers
+continue to serve HTTP behind the public HTTPS access layer, while Tailscale is
+reserved for private VM administration by deployment automation.
 
 Expected responsibilities:
 
-- Serve private HTTP traffic for Tailscale-based staging and personal production testing.
+- Serve internal HTTP traffic behind the public HTTPS access layer.
 - Serve HTTPS for public staging and production domains when public access is added.
 - Route frontend requests to the frontend container.
 - Route API requests to the backend container.
@@ -189,9 +191,11 @@ The websocket domain is reserved for the future chat feature. It does not need t
 
 Subdomains are preferred over path-based routing because they keep frontend, API, and websocket routing clearer for CORS, auth callbacks, and future realtime configuration.
 
-## Private VM Access With Tailscale
+## Private VM Administration With Tailscale
 
-Because the first staging and production VMs may run from a home Proxmox environment, the initial access path can use Tailscale instead of public DNS and router port forwarding.
+Because the staging and production VMs may run from a home Proxmox environment,
+GitHub Actions can use Tailscale for private SSH administration without exposing
+the SSH service through public DNS or router port forwarding.
 
 Tailscale runs on the VM host. It does not need to run inside the frontend, backend, PostgreSQL, or reverse proxy containers.
 
@@ -211,17 +215,17 @@ Frontend: http://production-vm:8080
 Backend:  http://production-vm:8081
 ```
 
-Use the full MagicDNS hostname or Tailscale `100.x.x.x` IP if the short hostname does not resolve.
-
-The deploy env files should be updated after the VM joins Tailscale:
+The deploy env files must continue to use the public TokShop application URLs:
 
 ```env
-VITE_APP_BACKEND_BASE_URL=http://staging-vm:8081
-APP_URL=http://staging-vm:8081
-FRONTEND_URL=http://staging-vm:8080
+VITE_APP_BACKEND_BASE_URL=https://staging-api.tokshop.click
+APP_URL=https://staging-api.tokshop.click
+FRONTEND_URL=https://staging.tokshop.click
 ```
 
-This is a private-access deployment mode. Devices must join the same tailnet before they can open the application. Public HTTPS domains use the `tokshop.click` hostnames from the public domain plan.
+Users open the application through the public `tokshop.click` hostnames. The
+private Tailscale connection remains limited to GitHub Actions and VM
+administration.
 
 ## Environment File Strategy
 
