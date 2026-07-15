@@ -73,6 +73,25 @@ Production uses the same pattern under `env/production`.
 
 Set a real `APP_KEY` in each `backend.env` before starting staging or production. Do not leave it empty outside the committed `.example` files.
 
+The public reverse proxy and Laravel trusted-proxy boundary use values from
+`backend.env`:
+
+```env
+TRUSTED_EDGE_PROXY=192.168.1.202
+TRUSTED_PROXIES=REMOTE_ADDR
+```
+
+`TRUSTED_EDGE_PROXY` must be the managed Cloudflare Tunnel connector source
+address as observed by the environment's reverse proxy. Nginx accepts
+`CF-Connecting-IP` only from that source and forwards it as one normalized
+`X-Forwarded-For` client address. Laravel then trusts only the `backend-nginx`
+peer directly connected to PHP-FPM through `REMOTE_ADDR`.
+
+If the tunnel connector moves, update `TRUSTED_EDGE_PROXY` before deployment.
+Do not replace it with an unrestricted LAN range: a trusted LAN client could
+otherwise forge security audit IP data. Direct local or Tailscale health checks
+without a forwarded header continue to use their actual connection address.
+
 Clerk requires environment-specific frontend and backend credentials:
 
 ```env

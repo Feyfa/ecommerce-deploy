@@ -24,3 +24,10 @@ Application image definitions stay in the application repositories:
 
 - [Release Flow](docs/release-flow.md)
   Defines branch-to-deploy flow, pull request flow, CI/CD triggers, branch protection, migration and seeder policy, multi-repo coordination, health checks, rollback, naming convention, environment secrets, and CI test level.
+
+## Trusted Client IP Configuration
+
+Set `TRUSTED_EDGE_PROXY` to the Cloudflare Tunnel connector source address and
+keep `TRUSTED_PROXIES=REMOTE_ADDR`. The reverse proxy validates and normalizes
+the client IP before Laravel reads it; trusting arbitrary forwarded headers in
+application code is not supported.

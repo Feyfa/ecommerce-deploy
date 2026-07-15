@@ -89,6 +89,18 @@ Expected responsibilities:
 
 The selected reverse proxy for this deployment stack is Nginx.
 
+The public Nginx configuration is rendered from an environment template. It
+trusts forwarded client addresses only when the request comes from
+`TRUSTED_EDGE_PROXY`, which is the managed Cloudflare Tunnel connector address.
+After validating that source, Nginx resolves the single `CF-Connecting-IP`
+value and replaces the outgoing chain with one normalized `X-Forwarded-For`
+value. Direct LAN requests therefore keep their actual source address even when
+they submit a forged Cloudflare or forwarded header.
+
+Laravel receives requests through `backend-nginx` and uses
+`TRUSTED_PROXIES=REMOTE_ADDR`. This trusts the immediate internal Nginx hop
+without hard-coding a Docker container IP that can change after recreation.
+
 ### Frontend
 
 The frontend service serves the built Vue application.
@@ -260,6 +272,8 @@ APP_ENV
 APP_DEBUG
 APP_URL
 FRONTEND_URL
+TRUSTED_EDGE_PROXY
+TRUSTED_PROXIES
 DB_CONNECTION
 DB_HOST
 DB_PORT
@@ -276,6 +290,12 @@ CLERK_SECRET_KEY
 CLERK_FEATURE_PASSKEY
 CLERK_FEATURE_TOTP
 ```
+
+`TRUSTED_EDGE_PROXY` accepts one IP address or CIDR owned by the deployment and
+must match the source address observed by the public reverse proxy for the
+Cloudflare Tunnel connector. `TRUSTED_PROXIES` should remain `REMOTE_ADDR` in
+the current two-layer Nginx architecture. Do not add a whole LAN subnet unless
+every host in that subnet is intentionally allowed to supply client-IP headers.
 
 Important frontend values include:
 
