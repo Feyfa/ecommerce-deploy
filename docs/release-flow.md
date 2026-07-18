@@ -23,13 +23,13 @@ main
 
 The deploy repository is the single source of truth for Docker Compose files, Nginx reverse proxy files, deploy scripts, environment examples, and deployment documentation.
 
-## Feature Branch Creation And Sync
+## Jira Task Branch Creation And Sync
 
-New feature branches start from `main`.
+New Jira task branches start from `main`.
 
 ```text
 main
-  -> feature/JD-TASK-1-account-security
+  -> bug/jd-tok-7
 ```
 
 Before implementation starts, check whether the task branch already exists
@@ -45,7 +45,7 @@ git status
 git switch main
 git pull --ff-only origin main
 
-git switch -c feature/JD-TASK-1-account-security
+git switch -c bug/jd-tok-7
 ```
 
 Do not push merely because the local task branch has been created. Push after
@@ -55,7 +55,7 @@ branch is being prepared for the agreed staging or production flow.
 If the task branch already exists locally, switch to it and inspect its status:
 
 ```bash
-git switch feature/JD-TASK-1-account-security
+git switch bug/jd-tok-7
 git status
 ```
 
@@ -65,18 +65,18 @@ same task:
 
 ```bash
 git fetch origin
-git switch --track origin/feature/JD-TASK-1-account-security
+git switch --track origin/bug/jd-tok-7
 git status
 ```
 
-The staging integration branch is created from the main feature branch:
+The staging integration branch is created from the main Jira task branch:
 
 ```text
-feature/JD-TASK-1-account-security
-  -> feature/JD-TASK-1-account-security-staging
+bug/jd-tok-7
+  -> bug/jd-tok-7-staging
 ```
 
-Complete, validate, and commit the intended implementation in the main feature
+Complete, validate, and commit the intended implementation in the main Jira task
 branch before preparing its staging integration branch. If the staging branch
 does not exist yet, update both long-lived source branches first:
 
@@ -87,20 +87,20 @@ git pull --ff-only origin main
 git switch staging
 git pull --ff-only origin staging
 
-git switch feature/JD-TASK-1-account-security
+git switch bug/jd-tok-7
 git merge main
 
-git switch -c feature/JD-TASK-1-account-security-staging
+git switch -c bug/jd-tok-7-staging
 git merge staging
 ```
 
-Resolve and validate production-source conflicts in the main feature branch.
+Resolve and validate production-source conflicts in the main Jira task branch.
 Resolve staging conflicts in the staging integration branch. Push both branches
 only after their merges and relevant validation succeed.
 
 If the staging integration branch already exists, do not recreate it. Refresh
-the long-lived branches, merge `main` into the main feature branch, then carry
-the feature changes and the latest `staging` into the existing staging branch:
+the long-lived branches, merge `main` into the main Jira task branch, then carry
+the task changes and the latest `staging` into the existing staging branch:
 
 ```bash
 git switch main
@@ -109,11 +109,11 @@ git pull --ff-only origin main
 git switch staging
 git pull --ff-only origin staging
 
-git switch feature/JD-TASK-1-account-security
+git switch bug/jd-tok-7
 git merge main
 
-git switch feature/JD-TASK-1-account-security-staging
-git merge feature/JD-TASK-1-account-security
+git switch bug/jd-tok-7-staging
+git merge bug/jd-tok-7
 git merge staging
 ```
 
@@ -124,67 +124,67 @@ repositories. It does not apply to the deploy repository, which uses only
 Normal sync before PR:
 
 ```text
-feature/* syncs with main
-feature/*-staging syncs with staging
+main Jira task branch syncs with main
+matching Jira task staging branch syncs with staging
 ```
 
 Use merge for sync. Do not use rebase.
 
-Production feature sync example:
+Production task sync example:
 
 ```bash
 git checkout main
 git pull origin main
 
-git checkout feature/JD-TASK-1-account-security
+git checkout bug/jd-tok-7
 git merge main
 ```
 
-Staging feature sync example:
+Staging task sync example:
 
 ```bash
 git checkout staging
 git pull origin staging
 
-git checkout feature/JD-TASK-1-account-security-staging
+git checkout bug/jd-tok-7-staging
 git merge staging
 ```
 
-If the PR still conflicts after normal sync, resolve the conflict in the feature branch based on the PR target.
+If the PR still conflicts after normal sync, resolve the conflict in the Jira task branch based on the PR target.
 
 For a production PR conflict:
 
 ```text
-feature/* -> develop-main
+main Jira task branch -> develop-main
 ```
 
-merge the target branch into the feature branch:
+merge the target branch into the main Jira task branch:
 
 ```bash
 git checkout develop-main
 git pull origin develop-main
 
-git checkout feature/JD-TASK-1-account-security
+git checkout bug/jd-tok-7
 git merge develop-main
 ```
 
 For a staging PR conflict:
 
 ```text
-feature/*-staging -> develop-staging
+Jira task staging branch -> develop-staging
 ```
 
-merge the target branch into the feature staging branch:
+merge the target branch into the Jira task staging branch:
 
 ```bash
 git checkout develop-staging
 git pull origin develop-staging
 
-git checkout feature/JD-TASK-1-account-security-staging
+git checkout bug/jd-tok-7-staging
 git merge develop-staging
 ```
 
-Resolve conflicts in the feature branch, commit, push, and let the PR update. Do not resolve conflicts directly in `main`, `staging`, `develop-main`, or `develop-staging`.
+Resolve conflicts in the Jira task branch, commit, push, and let the PR update. Do not resolve conflicts directly in `main`, `staging`, `develop-main`, or `develop-staging`.
 
 ## Merge Policy
 
@@ -199,8 +199,8 @@ staging -> develop-main
 develop-staging -> develop-main
 staging -> main
 develop-staging -> main
-feature/*-staging -> develop-main
-feature/*-staging -> main
+Jira task staging branch -> develop-main
+Jira task staging branch -> main
 ```
 
 ## Branch-To-Deploy Flow
@@ -208,13 +208,13 @@ feature/*-staging -> main
 Staging flow for frontend and backend:
 
 ```text
-complete code, tests, environment examples, and affected docs in feature/*
-  -> merge latest main into feature/*
-  -> resolve conflicts and validate feature/*
-  -> commit and push feature/*
-  -> merge feature/* into feature/*-staging
-  -> merge latest staging into feature/*-staging
-  -> feature/*-staging
+complete code, tests, environment examples, and affected docs in the main Jira task branch
+  -> merge latest main into the main Jira task branch
+  -> resolve conflicts and validate the main Jira task branch
+  -> commit and push the main Jira task branch
+  -> merge the main Jira task branch into its task staging branch
+  -> merge latest staging into the task staging branch
+  -> Jira task staging branch
   -> develop-staging
   -> staging
   -> manual Deploy Staging workflow from the deploy repository
@@ -223,25 +223,25 @@ complete code, tests, environment examples, and affected docs in feature/*
 Production flow for frontend and backend:
 
 ```text
-complete code, tests, environment examples, and affected docs in feature/*
-  -> merge latest main into feature/*
-  -> resolve conflicts and validate feature/*
-  -> commit and push feature/*
-  -> feature/*
+complete code, tests, environment examples, and affected docs in the main Jira task branch
+  -> merge latest main into the main Jira task branch
+  -> resolve conflicts and validate the main Jira task branch
+  -> commit and push the main Jira task branch
+  -> main Jira task branch
   -> develop-main
   -> main
   -> manual Deploy Production workflow from the deploy repository
 ```
 
-Do not open a staging PR directly from `feature/*`. The staging integration
-branch is mandatory even when GitHub reports that `feature/*` can merge cleanly
+Do not open a staging PR directly from a main Jira task branch. The staging
+integration branch is mandatory even when GitHub reports that the task branch can merge cleanly
 into `develop-staging`. Its purpose is not only conflict resolution; it also
 keeps staging synchronization out of the production candidate branch.
 
-Before creating or refreshing `feature/*-staging`, review whether the latest
-feature behavior requires documentation changes. Make required documentation
-changes in `feature/*`, then merge the updated feature branch into
-`feature/*-staging`. If no documentation is affected, do not create an empty or
+Before creating or refreshing a Jira task staging branch, review whether the
+latest task behavior requires documentation changes. Make required documentation
+changes in the main Jira task branch, then merge the updated task branch into
+its task staging branch. If no documentation is affected, do not create an empty or
 unrelated documentation change merely for the release process.
 
 `develop-staging` is the preparation and merge-check branch before `staging`. `staging` is the branch that the staging deployment workflow pulls from.
@@ -280,7 +280,7 @@ CI runs on pull requests to validate code before it enters the target branch. De
 Staging PR flow:
 
 ```text
-feature/JD-TASK-1-account-security-staging
+bug/jd-tok-7-staging
   -> PR to develop-staging
   -> CI runs
   -> PM review
@@ -293,7 +293,7 @@ feature/JD-TASK-1-account-security-staging
 Production PR flow:
 
 ```text
-feature/JD-TASK-1-account-security
+bug/jd-tok-7
   -> PR to develop-main
   -> CI runs
   -> PM review
@@ -321,7 +321,9 @@ develop-main
 main
 ```
 
-At this initial stage, a normal push to `feature/**` or `hotfix/**` does not run CI. CI runs when a PR is created or updated, before the PM merges it.
+At this initial stage, a normal push to `feature/**`, `story/**`, `bug/**`, or
+`hotfix/**` does not run CI. CI runs when a PR is created or updated, before the
+PM merges it.
 
 Staging deploy trigger:
 
@@ -402,6 +404,10 @@ Developers push to:
 ```text
 feature/**
 feature/**-staging
+story/**
+story/**-staging
+bug/**
+bug/**-staging
 hotfix/**
 hotfix/**-staging
 ```
@@ -572,44 +578,56 @@ curl -f https://api.tokshop.click/api/health
 
 ## Naming Convention
 
-Branch names should use the task key from Trello or another task manager.
+Branch names must use the Jira work type, the initials of the person doing the
+work, and the Jira issue key. Use lowercase for the entire branch name, while
+the issue remains uppercase in Jira itself.
 
-Feature branch:
+Main Jira task branch:
 
 ```text
-feature/{initial}-{task-key}-{short-description}
+{work-type}/{initial}-{jira-key}
 ```
 
-Feature staging branch:
+Jira task staging branch:
 
 ```text
-feature/{initial}-{task-key}-{short-description}-staging
+{work-type}/{initial}-{jira-key}-staging
 ```
 
-Hotfix branch:
+Supported Jira work type prefixes:
 
 ```text
-hotfix/{initial}-{task-key}-{short-description}
-```
-
-Hotfix staging branch:
-
-```text
-hotfix/{initial}-{task-key}-{short-description}-staging
+feature
+story
+bug
 ```
 
 Examples:
 
 ```text
-feature/JD-TASK-1-account-security
-feature/JD-TASK-1-account-security-staging
-hotfix/JD-TASK-2-login-error
-hotfix/JD-TASK-2-login-error-staging
+feature/jd-tok-9
+story/ar-tok-8
+bug/jd-tok-7
+bug/jd-tok-7-staging
 ```
 
-Use a short description so branch names stay readable when the task list grows.
+The initials identify the person responsible for the implementation. For
+example, `jd` represents Jidan. The Jira issue key is normalized to lowercase,
+so Jira issue `TOK-7` becomes `tok-7` in the branch name. Do not append a short
+description because Jira remains the source of truth for the task title and
+details.
 
-For full-stack features, use the same branch name in frontend and backend so the work is easy to coordinate.
+`hotfix/*` remains reserved for urgent production fixes and uses the same
+initials and Jira key structure:
+
+```text
+hotfix/{initial}-{jira-key}
+hotfix/{initial}-{jira-key}-staging
+hotfix/jd-tok-10
+```
+
+For full-stack tasks, use the same branch name in frontend and backend so the
+work is easy to coordinate.
 
 ## Environment Secrets And VM Access
 

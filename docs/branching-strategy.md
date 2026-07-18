@@ -30,31 +30,41 @@ This branch represents the code deployed to the staging server. It should receiv
 
 This branch can contain features that are being tested in staging and are not ready for production yet. `develop-staging` must not be merged directly into `develop-main` or `main` unless every change inside it is intentionally ready for production.
 
-### `feature/*`
+### Jira task branches
 
-`feature/*` is the main branch for a feature.
+`feature/*`, `story/*`, and `bug/*` are the main branches for planned Jira
+work. The prefix must match the Jira work type, and the branch must follow the
+shared Jira naming convention defined in `release-flow.md`.
 
-This branch is the source of truth for the feature and the branch that can later be merged into `develop-main` when the feature is production-ready.
+The main task branch is the source of truth for the work and the branch that
+can later be merged into `develop-main` when the change is production-ready.
 
-Example:
-
-```text
-feature/seller-buyer-chat
-```
-
-### `feature/*-staging`
-
-`feature/*-staging` is the staging integration branch for a feature.
-
-This branch is used to resolve conflicts against `develop-staging` and prepare the feature for staging without changing the production candidate branch.
-
-Example:
+Examples:
 
 ```text
-feature/seller-buyer-chat-staging
+feature/jd-tok-9
+story/ar-tok-8
+bug/jd-tok-7
 ```
 
-Production must not merge from `feature/*-staging`.
+### Jira task staging branches
+
+`feature/*-staging`, `story/*-staging`, and `bug/*-staging` are staging
+integration branches for planned Jira work.
+
+The staging task branch is used to resolve conflicts against
+`develop-staging` and prepare the task for staging without changing the
+production candidate branch.
+
+Examples:
+
+```text
+feature/jd-tok-9-staging
+story/ar-tok-8-staging
+bug/jd-tok-7-staging
+```
+
+Production must not merge from a `*-staging` Jira task branch.
 
 ### `hotfix/*`
 
@@ -65,7 +75,7 @@ Hotfix branches should start from `main` so urgent fixes start from the current 
 Example:
 
 ```text
-hotfix/fix-login-error
+hotfix/jd-tok-10
 ```
 
 ### `hotfix/*-staging`
@@ -74,114 +84,126 @@ hotfix/fix-login-error
 
 If the hotfix can merge cleanly into `develop-staging`, this extra branch is not required.
 
-## Feature Branch Flow
+## Jira Task Branch Flow
 
-Every feature starts from `main`.
+Every planned Jira task starts from `main`.
 
 ```text
 main
-  -> feature/name
-  -> feature/name-staging
+  -> bug/jd-tok-7
+  -> bug/jd-tok-7-staging
 ```
 
-`feature/name` remains the source of truth.
+The main Jira task branch remains the source of truth.
 
-`feature/name-staging` is used only for staging integration.
+The matching `*-staging` task branch is used only for staging integration.
 
 ### Source Branch Completion Rule
 
-Before creating or updating `feature/name-staging`, finish every intended
-feature change in `feature/name` first, including application code, tests,
+Before creating or updating a `*-staging` task branch, finish every intended
+change in the main Jira task branch first, including application code, tests,
 environment examples, build integration, affected documentation, and fixes
 found during local review.
 
-Commit and push those changes to `feature/name` before carrying them into the
-staging integration branch. Do not create the staging branch merely because the
-feature is expected to go to staging later, and do not use
-`feature/name-staging` as the primary workspace for unfinished feature work.
+Commit and push those changes to the main Jira task branch before carrying them
+into the staging integration branch. Do not create the staging branch merely
+because the task is expected to go to staging later, and do not use the
+`*-staging` branch as the primary workspace for unfinished task work.
 
-When `feature/name-staging` already exists, merge the latest `feature/name`
-into it after every new source-branch change. Do not recreate the staging branch
-and do not copy individual files manually.
+When the task staging branch already exists, merge the latest main task branch
+into it after every new source-branch change. Do not recreate the staging
+branch and do not copy individual files manually.
 
 Environment synchronization is mandatory but remains isolated by purpose:
 
-- merge the latest `main` into `feature/name` before preparing either a staging
-  release or a production candidate;
-- merge the latest `staging` into `feature/name-staging` when preparing staging;
-- never merge `staging` into `feature/name` merely to prepare a staging release;
-- never merge `feature/name` directly into `develop-staging` or `staging`.
+- merge the latest `main` into the main Jira task branch before preparing
+  either a staging release or a production candidate;
+- merge the latest `staging` into the matching `*-staging` task branch when
+  preparing staging;
+- never merge `staging` into the main Jira task branch merely to prepare a
+  staging release;
+- never merge a main Jira task branch directly into `develop-staging` or
+  `staging`.
 
-Before continuing to either staging or production, sync the source feature
+Before continuing to either staging or production, sync the main Jira task
 branch with the latest `main`:
 
 ```text
 main
-  -> feature/name
+  -> bug/jd-tok-7
 ```
 
 Before opening a staging PR, sync the staging integration branch with the latest `staging`:
 
 ```text
 staging
-  -> feature/name-staging
+  -> bug/jd-tok-7-staging
 ```
 
 All sync operations use merge, not rebase.
 
 ## Staging Flow
 
-Use this flow when a feature needs to be tested in staging:
+Use this flow when a Jira task needs to be tested in staging:
 
 ```text
-merge latest main into feature/name
-  -> resolve source-branch conflicts and validate feature/name
-  -> feature/name-staging
-  -> merge latest staging into feature/name-staging
-  -> resolve staging conflicts in feature/name-staging
-  -> feature/name-staging merges into develop-staging
+merge latest main into the main Jira task branch
+  -> resolve source-branch conflicts and validate the main task branch
+  -> create or update the matching task staging branch
+  -> merge latest staging into the task staging branch
+  -> resolve staging conflicts in the task staging branch
+  -> task staging branch merges into develop-staging
   -> develop-staging deploys or merges into staging
 ```
 
-Conflict resolution for staging happens in `feature/name-staging`, not in `develop-staging` or `staging`.
+Conflict resolution for staging happens in the matching `*-staging` task
+branch, not in `develop-staging` or `staging`.
 
-If a PR from `feature/name-staging` to `develop-staging` still conflicts after normal sync with `staging`, merge the PR target branch `develop-staging` into `feature/name-staging`, resolve the conflict there, commit, and push the feature staging branch again.
+If a PR from a task staging branch to `develop-staging` still conflicts after
+normal sync with `staging`, merge the PR target branch `develop-staging` into
+the task staging branch, resolve the conflict there, commit, and push the task
+staging branch again.
 
 ## Production Flow
 
-Use this flow when a feature is ready for production:
+Use this flow when a Jira task is ready for production:
 
 ```text
-merge latest main into feature/name
-  -> resolve production conflicts in feature/name
-  -> feature/name merges into develop-main
+merge latest main into the main Jira task branch
+  -> resolve production conflicts in the main task branch
+  -> main task branch merges into develop-main
   -> develop-main merges into main
   -> production deploys from main or a release tag from main
 ```
 
-Production must use `feature/name`, not `feature/name-staging`.
+Production must use the main Jira task branch, not its `*-staging` branch.
 
-If a PR from `feature/name` to `develop-main` still conflicts after normal sync with `main`, merge the PR target branch `develop-main` into `feature/name`, resolve the conflict there, commit, and push the feature branch again.
+If a PR from a main Jira task branch to `develop-main` still conflicts after
+normal sync with `main`, merge the PR target branch `develop-main` into the
+main task branch, resolve the conflict there, commit, and push the task branch
+again.
 
 ## Fix Rules During Staging
 
-When a bug is found during staging testing, the default rule is:
+When an additional bug is found during staging testing, the default rule is:
 
 ```text
-Fix in feature/name first.
-Then merge feature/name into feature/name-staging.
+Fix in the main Jira task branch first.
+Then merge the main task branch into its task staging branch.
 Then test again in staging.
 ```
 
 This keeps the production candidate branch and the staging integration branch aligned.
 
-If a fix is made directly in `feature/name-staging` because it is a conflict-specific staging fix, the developer must review whether the fix is also needed in `feature/name`.
+If a fix is made directly in a task staging branch because it is a
+conflict-specific staging fix, the developer must review whether the fix is
+also needed in the main Jira task branch.
 
 Documentation follows the same rule as code. If a behavior change makes
 existing documentation incomplete or inaccurate, update the documentation in
-`feature/name` first, commit it, and then merge the feature branch into
-`feature/name-staging`. Leave documentation unchanged only when review confirms
-that it still describes the implementation accurately.
+the main Jira task branch first, commit it, and then merge the task branch into
+its task staging branch. Leave documentation unchanged only when review
+confirms that it still describes the implementation accurately.
 
 ## Hotfix Flow
 
@@ -189,7 +211,7 @@ Use this flow for urgent production fixes:
 
 ```text
 main or develop-main
-  -> hotfix/name
+  -> hotfix/jd-tok-10
   -> develop-main
   -> main
   -> production deploy
@@ -200,7 +222,7 @@ This keeps hotfixes based on the current production source of truth.
 After production is fixed, bring the hotfix back to staging:
 
 ```text
-hotfix/name
+hotfix/jd-tok-10
   -> develop-staging
   -> staging
 ```
@@ -208,8 +230,8 @@ hotfix/name
 If `develop-staging` has conflicts, use a staging integration branch:
 
 ```text
-hotfix/name
-  -> hotfix/name-staging
+hotfix/jd-tok-10
+  -> hotfix/jd-tok-10-staging
   -> develop-staging
   -> staging
 ```
@@ -220,13 +242,16 @@ Conflict resolution must happen before a protected branch receives the change.
 
 Rules:
 
-- Staging conflicts are resolved in `feature/*-staging` or `hotfix/*-staging`.
-- Production conflicts are resolved in `feature/*` or `hotfix/*`.
+- Staging conflicts are resolved in Jira task `*-staging` branches or
+  `hotfix/*-staging`.
+- Production conflicts are resolved in main Jira task branches or `hotfix/*`.
 - `develop-staging`, `staging`, `develop-main`, and `main` are not used as manual conflict resolution workspaces.
 - PMs and reviewers should only merge branches that are clean and ready.
 - If another pull request is merged first and a branch becomes conflicted, the developer who owns the branch updates it and resolves the conflict.
-- Normal feature sync uses `main` for `feature/*` and `staging` for `feature/*-staging`.
-- If the PR still conflicts after normal sync, merge the PR target branch into the feature branch and resolve the conflict there.
+- Normal task sync uses `main` for the main Jira task branch and `staging` for
+  its matching `*-staging` branch.
+- If the PR still conflicts after normal sync, merge the PR target branch into
+  the Jira task branch and resolve the conflict there.
 
 ## Release Safety Rules
 
@@ -236,29 +261,30 @@ Rules:
 
 - Do not merge `develop-staging` directly into `develop-main` unless every change in `develop-staging` is intentionally production-ready.
 - Do not merge `staging` into `main`.
-- Do not merge `feature/*-staging` into `develop-main` or `main`.
-- Do not ship unfinished staging-only features to production.
+- Do not merge any Jira task `*-staging` branch into `develop-main` or `main`.
+- Do not ship unfinished staging-only tasks to production.
 - Production deploys should come from `main` or a release tag from `main`.
 
 ## Practical Summary
 
-Normal feature:
+Normal Jira task:
 
 ```text
-feature/name
-feature/name-staging
+bug/jd-tok-7
+bug/jd-tok-7-staging
 ```
 
 Staging receives:
 
 ```text
-feature/name-staging -> develop-staging -> staging
+bug/jd-tok-7-staging -> develop-staging -> staging
 ```
 
 Production receives:
 
 ```text
-feature/name -> develop-main -> main
+bug/jd-tok-7 -> develop-main -> main
 ```
 
-The staging branch exists to absorb staging conflicts. The main feature branch remains the production candidate.
+The staging branch exists to absorb staging conflicts. The main Jira task
+branch remains the production candidate.
