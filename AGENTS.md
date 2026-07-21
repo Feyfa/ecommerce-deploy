@@ -21,3 +21,11 @@ Review the relevant documentation before modifying containers, server configurat
 ## Related Repositories
 
 The project may include separate frontend and backend repositories. If a task affects another repository and that repository is available in the workspace, inspect its code and documentation as well. Do not assume that related repositories are always available or located at a specific path.
+
+## GitHub Pull Requests
+
+When the user asks to create, open, update, or otherwise operate a pull request, use the GitHub API through the connected GitHub integration. Do not use the GitHub website through browser automation for pull request operations unless the API is unavailable or the user explicitly requests browser-based interaction.
+
+## GitHub Actions
+
+When the user asks to run or dispatch a GitHub Actions workflow in this deployment repository, use the Chrome extension and the existing authenticated GitHub browser session. Do not dispatch deployment workflows through the GitHub API or GitHub CLI unless the Chrome extension is unavailable or the user explicitly requests another method.
