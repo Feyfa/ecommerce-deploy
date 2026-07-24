@@ -541,10 +541,10 @@ curl -f https://staging.tokshop.click
 curl -f https://tokshop.click
 ```
 
-Backend should expose a lightweight endpoint:
+Backend exposes a lightweight endpoint at the API root:
 
 ```text
-GET /api/health
+GET /
 ```
 
 Initial backend response:
@@ -572,8 +572,8 @@ Keep health checks lightweight because CI/CD and monitoring can call them often.
 Backend health check examples:
 
 ```bash
-curl -f https://staging-api.tokshop.click/api/health
-curl -f https://api.tokshop.click/api/health
+curl -f https://staging-api.tokshop.click/
+curl -f https://api.tokshop.click/
 ```
 
 ## Naming Convention
