@@ -32,9 +32,10 @@ This branch can contain features that are being tested in staging and are not re
 
 ### Jira task branches
 
-`feature/*`, `story/*`, and `bug/*` are the main branches for planned Jira
-work. The prefix must match the Jira work type, and the branch must follow the
-shared Jira naming convention defined in `release-flow.md`.
+`feature/*`, `story/*`, `bug/*`, and `task/*` are the main branches for planned
+Jira work. Use `task/*` for general Jira tasks that are not classified as a
+feature, story, or bug. Every branch must follow the shared Jira naming
+convention defined in `release-flow.md`.
 
 The main task branch is the source of truth for the work and the branch that
 can later be merged into `develop-main` when the change is production-ready.
@@ -45,12 +46,13 @@ Examples:
 feature/jd-tok-9
 story/ar-tok-8
 bug/jd-tok-7
+task/jd-tok-17
 ```
 
 ### Jira task staging branches
 
-`feature/*-staging`, `story/*-staging`, and `bug/*-staging` are staging
-integration branches for planned Jira work.
+`feature/*-staging`, `story/*-staging`, `bug/*-staging`, and `task/*-staging`
+are staging integration branches for planned Jira work.
 
 The staging task branch is used to resolve conflicts against
 `develop-staging` and prepare the task for staging without changing the
@@ -62,6 +64,7 @@ Examples:
 feature/jd-tok-9-staging
 story/ar-tok-8-staging
 bug/jd-tok-7-staging
+task/jd-tok-17-staging
 ```
 
 Production must not merge from a `*-staging` Jira task branch.

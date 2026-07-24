@@ -321,9 +321,9 @@ develop-main
 main
 ```
 
-At this initial stage, a normal push to `feature/**`, `story/**`, `bug/**`, or
-`hotfix/**` does not run CI. CI runs when a PR is created or updated, before the
-PM merges it.
+At this initial stage, a normal push to `feature/**`, `story/**`, `bug/**`,
+`task/**`, or `hotfix/**` does not run CI. CI runs when a PR is created or
+updated, before the PM merges it.
 
 Staging deploy trigger:
 
@@ -408,6 +408,8 @@ story/**
 story/**-staging
 bug/**
 bug/**-staging
+task/**
+task/**-staging
 hotfix/**
 hotfix/**-staging
 ```
@@ -600,6 +602,7 @@ Supported Jira work type prefixes:
 feature
 story
 bug
+task
 ```
 
 Examples:
@@ -609,6 +612,8 @@ feature/jd-tok-9
 story/ar-tok-8
 bug/jd-tok-7
 bug/jd-tok-7-staging
+task/jd-tok-17
+task/jd-tok-17-staging
 ```
 
 The initials identify the person responsible for the implementation. For
