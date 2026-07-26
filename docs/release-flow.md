@@ -6,13 +6,11 @@ The goal is to keep staging fast enough for validation while keeping production 
 
 ## Repository Branch Roles
 
-The frontend and backend repositories use four long-lived branches:
+The frontend and backend repositories use two long-lived branches:
 
 ```text
 main
 staging
-develop-main
-develop-staging
 ```
 
 The deploy repository uses only:
@@ -155,36 +153,36 @@ If the PR still conflicts after normal sync, resolve the conflict in the Jira ta
 For a production PR conflict:
 
 ```text
-main Jira task branch -> develop-main
+main Jira task branch -> main
 ```
 
 merge the target branch into the main Jira task branch:
 
 ```bash
-git checkout develop-main
-git pull origin develop-main
+git checkout main
+git pull origin main
 
 git checkout bug/jd-tok-7
-git merge develop-main
+git merge main
 ```
 
 For a staging PR conflict:
 
 ```text
-Jira task staging branch -> develop-staging
+Jira task staging branch -> staging
 ```
 
 merge the target branch into the Jira task staging branch:
 
 ```bash
-git checkout develop-staging
-git pull origin develop-staging
+git checkout staging
+git pull origin staging
 
 git checkout bug/jd-tok-7-staging
-git merge develop-staging
+git merge staging
 ```
 
-Resolve conflicts in the Jira task branch, commit, push, and let the PR update. Do not resolve conflicts directly in `main`, `staging`, `develop-main`, or `develop-staging`.
+Resolve conflicts in the Jira task branch, commit, push, and let the PR update. Do not resolve conflicts directly in `main` or `staging`.
 
 ## Merge Policy
 
@@ -195,11 +193,7 @@ This keeps the workflow easier to understand and avoids rewriting history that h
 Do not merge:
 
 ```text
-staging -> develop-main
-develop-staging -> develop-main
 staging -> main
-develop-staging -> main
-Jira task staging branch -> develop-main
 Jira task staging branch -> main
 ```
 
@@ -215,7 +209,6 @@ complete code, tests, environment examples, and affected docs in the main Jira t
   -> merge the main Jira task branch into its task staging branch
   -> merge latest staging into the task staging branch
   -> Jira task staging branch
-  -> develop-staging
   -> staging
   -> manual Deploy Staging workflow from the deploy repository
 ```
@@ -228,14 +221,13 @@ complete code, tests, environment examples, and affected docs in the main Jira t
   -> resolve conflicts and validate the main Jira task branch
   -> commit and push the main Jira task branch
   -> main Jira task branch
-  -> develop-main
   -> main
   -> manual Deploy Production workflow from the deploy repository
 ```
 
 Do not open a staging PR directly from a main Jira task branch. The staging
 integration branch is mandatory even when GitHub reports that the task branch can merge cleanly
-into `develop-staging`. Its purpose is not only conflict resolution; it also
+into `staging`. Its purpose is not only conflict resolution; it also
 keeps staging synchronization out of the production candidate branch.
 
 Before creating or refreshing a Jira task staging branch, review whether the
@@ -244,13 +236,9 @@ changes in the main Jira task branch, then merge the updated task branch into
 its task staging branch. If no documentation is affected, do not create an empty or
 unrelated documentation change merely for the release process.
 
-`develop-staging` is the preparation and merge-check branch before `staging`. `staging` is the branch that the staging deployment workflow pulls from.
+`staging` is the branch that the staging deployment workflow pulls from.
 
-`develop-main` is the preparation and merge-check branch before `main`. `main` is the branch that the production deployment workflow pulls from.
-
-After a staging release, `develop-staging` and `staging` should be at the same commit.
-
-After a production release, `develop-main` and `main` should be at the same commit.
+`main` is the branch that the production deployment workflow pulls from.
 
 ## Deploy Repository Flow
 
@@ -281,11 +269,9 @@ Staging PR flow:
 
 ```text
 bug/jd-tok-7-staging
-  -> PR to develop-staging
+  -> PR to staging
   -> CI runs
   -> PM review
-  -> merge to develop-staging
-  -> PR develop-staging to staging
   -> merge to staging
   -> run Deploy Staging manually from the deploy repository
 ```
@@ -294,12 +280,9 @@ Production PR flow:
 
 ```text
 bug/jd-tok-7
-  -> PR to develop-main
+  -> PR to main
   -> CI runs
   -> PM review
-  -> merge to develop-main
-  -> PR develop-main to main
-  -> final review or approval
   -> merge to main
   -> manual production deploy
 ```
@@ -315,9 +298,7 @@ Merging to `main` means the code is production-ready. The actual production depl
 Initial CI should run only on pull requests to protected branches:
 
 ```text
-develop-staging
 staging
-develop-main
 main
 ```
 
@@ -338,7 +319,7 @@ Production deploy should not fully auto-deploy from a push to `main` at the init
 Recommended initial production flow:
 
 ```text
-develop-main -> main
+main Jira task branch -> main
 ```
 
 The merge to `main` makes the code production-ready. Production deploy does not run until the PM or release owner starts the manual Deploy Production workflow.
@@ -381,8 +362,6 @@ Frontend and backend protected branches:
 ```text
 main
 staging
-develop-main
-develop-staging
 ```
 
 Rules for all protected frontend and backend branches:
@@ -397,7 +376,7 @@ Additional behavior:
 - `main`: production deploy remains manual or approval-controlled.
 - `staging`: after merge, staging deploy is run manually from the deploy repository.
 
-Developers and PMs do not push directly to `main`, `staging`, `develop-main`, or `develop-staging`.
+Developers and PMs do not push directly to `main` or `staging`.
 
 Developers push to:
 
@@ -741,9 +720,9 @@ CD redeploys
 
 There is no direct injection into GitHub and no direct change to protected branches without PR.
 
-For production rollback, create a hotfix or rollback branch from `main` or `develop-main`, depending on the emergency.
+For production rollback, create a hotfix or rollback branch from `main`.
 
-For staging rollback, create a hotfix or rollback branch from `staging` or `develop-staging`, depending on the situation.
+For staging rollback, create a hotfix or rollback branch from `staging`.
 
 Revert commits must still pass CI because revert can conflict, fail builds, fail tests, or be incompatible with migrations or data that already ran.
 
