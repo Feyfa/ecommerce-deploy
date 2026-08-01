@@ -89,6 +89,11 @@ Expected responsibilities:
 
 The selected reverse proxy for this deployment stack is Nginx.
 
+The public API server allows request bodies up to `20m`. This limit must remain
+aligned with the backend Nginx layer so valid multi-image product requests are
+not rejected by the public proxy before reaching Laravel. Laravel still
+enforces the actual file count, type, and per-file size rules.
+
 The public Nginx configuration is rendered from an environment template. It
 trusts forwarded client addresses only when the request comes from
 `TRUSTED_EDGE_PROXY`, which is the managed Cloudflare Tunnel connector address.
@@ -289,6 +294,9 @@ SESSION_DRIVER
 CLERK_SECRET_KEY
 CLERK_FEATURE_PASSKEY
 CLERK_FEATURE_TOTP
+GEOAPIFY_API_KEY
+GEOAPIFY_API_URL
+GEOAPIFY_TIMEOUT
 ```
 
 `TRUSTED_EDGE_PROXY` accepts one IP address or CIDR owned by the deployment and
@@ -307,6 +315,7 @@ VITE_CLERK_SIGN_IN_URL
 VITE_CLERK_SIGN_UP_URL
 VITE_FEATURE_CLERK_PASSKEY
 VITE_FEATURE_CLERK_TOTP
+VITE_GEOAPIFY_API_KEY
 FRONTEND_HTTP_PORT
 BACKEND_HTTP_PORT
 ```
@@ -316,6 +325,16 @@ staging and production examples. The frontend values are Docker build
 arguments, so changing them requires rebuilding the frontend image. The backend
 values are runtime configuration and keep the Security summary aligned with the
 frontend capability state.
+
+`VITE_GEOAPIFY_API_KEY` is a public browser key compiled after the Clerk group
+in each frontend env file. Use a different origin-restricted key for staging
+and production; never commit the real values.
+
+`GEOAPIFY_API_KEY` is a separate backend runtime key used to reverse-geocode
+and validate every new or updated pinpoint before it is saved. Keep it out of
+frontend env files and apply server/IP restrictions when available. If provider
+verification is unavailable, address writes fail closed instead of accepting
+unverified text.
 
 Clerk settings must be separated between staging and production. The frontend
 publishable key and auth route values are passed into the Vite build as Docker

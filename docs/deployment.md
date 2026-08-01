@@ -114,6 +114,24 @@ when `VITE_CLERK_PUBLISHABLE_KEY` is missing, preventing a deployment with an
 unusable authentication bundle. `CLERK_SECRET_KEY` is loaded only into the
 backend PHP container through `backend.env`.
 
+Geoapify uses separate browser and server-side keys:
+
+```env
+# frontend.env - keep this group below Clerk configuration
+VITE_GEOAPIFY_API_KEY=<environment-browser-key>
+
+# backend.env - private runtime value used for authoritative reverse geocoding
+GEOAPIFY_API_KEY=<environment-server-key>
+GEOAPIFY_API_URL=https://api.geoapify.com/v1/geocode
+GEOAPIFY_TIMEOUT=8
+```
+
+Restrict browser keys to `https://staging.tokshop.click` and
+`https://tokshop.click`; changing one requires rebuilding the frontend image.
+The backend key is loaded at runtime and should use server/IP restrictions when
+available. Do not reuse the local-development browser key or expose the backend
+key through a `VITE_` variable.
+
 ## Private VM Administration With Tailscale
 
 Tailscale is the private administration path from GitHub Actions to the staging
@@ -173,6 +191,11 @@ Local stack validation:
 `deploy-production.sh` starts or updates the production stack. There is no production stop script by default because stopping production should be a deliberate manual operation.
 
 Both deploy scripts force recreate `backend-nginx` and `reverse-proxy` after `docker compose up -d --build`. This refreshes both Nginx upstream layers after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+
+The API server in both public reverse-proxy templates sets
+`client_max_body_size 20m`, matching the backend Nginx layer. Keep both layers
+aligned whenever application upload limits change; otherwise the outer proxy
+can return `413 Request Entity Too Large` before Laravel receives the request.
 
 If a `502 Bad Gateway` response appears after a manual rebuild, force recreate the Nginx layer that owns the stale upstream reference:
 
