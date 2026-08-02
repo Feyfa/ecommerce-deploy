@@ -422,8 +422,8 @@ Rules for all protected frontend and backend branches:
 
 - no direct push;
 - changes must enter through PR;
-- CI must pass;
-- review or approval is required.
+- CI and `Release Branch Policy` must pass;
+- review is recommended but is not required by the current branch protection.
 
 Additional behavior:
 
