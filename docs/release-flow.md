@@ -21,6 +21,20 @@ main
 
 The deploy repository is the single source of truth for Docker Compose files, Nginx reverse proxy files, deploy scripts, environment examples, and deployment documentation.
 
+Before implementation starts in the frontend or backend repositories, confirm
+that the Jira task identity and branch name are clear. The work type,
+responsible initials, and Jira issue key are required to derive the branch name.
+If any of them is missing or ambiguous, stop before editing code or creating a
+branch, explain the expected branch format to the user, and request the missing
+Jira information. Do not work directly on `main` or `staging`.
+
+The main Jira task branch must be created or checked out before implementation
+starts. Verify the active branch before the first code change and after every
+branch switch. If the active branch is `main`, `staging`, or unrelated to the
+Jira task, stop implementation until the correct task branch is active. The
+matching `*-staging` branch may only be prepared after the main task branch
+exists and contains the intended source changes.
+
 ## Jira Task Branch Creation And Sync
 
 New Jira task branches start from `main`.
@@ -242,13 +256,53 @@ unrelated documentation change merely for the release process.
 
 ## Deploy Repository Flow
 
-The deploy repository uses only `main`.
+The deploy repository uses only the long-lived `main` branch. The frontend and
+backend Jira task-branch flow does not apply to this repository: do not create a
+deploy `staging` branch or persistent deploy `*-staging` branches.
+
+Normal deployment repository changes are made on `main`, validated locally,
+committed, and pushed directly to `origin/main`:
+
+```bash
+git switch main
+git pull --ff-only origin main
+
+# edit and validate the deployment files
+git add <deployment-files>
+git commit -m "<deployment change>"
+git push origin main
+```
+
+Pushing `deploy/main` synchronizes repository files only. It does not rebuild
+containers, restart services, run migrations, run seeders, or otherwise apply a
+runtime change. Use the appropriate manual workflow when the change must reach
+staging or production.
 
 If the deploy repository changes only staging-specific files, pull `deploy/main` on staging and run the staging deploy only when needed. Production can pull for synchronization, but does not need a production deploy.
 
 If the deploy repository changes only production-specific files, pull `deploy/main` on production and run the production deploy only when needed. Staging can pull for synchronization, but does not need a staging deploy.
 
 If the deploy repository changes shared deployment behavior, validate it on staging first. Continue to production only after staging is safe.
+
+## Commit And Staging Scope
+
+Stage only the files that have been reviewed for the current task. Do not use `git add -A`, `git add .`, `git add --all`, or broad globs because those commands can include unrelated changes without making the approval scope obvious.
+
+Use explicit file paths instead:
+
+```bash
+git add -- AGENTS.md README.md docs/release-flow.md
+```
+
+After staging, inspect the exact commit scope before creating the commit:
+
+```bash
+git diff --cached --name-status
+git diff --cached --stat
+git diff --cached
+```
+
+The same explicit-file rule applies to frontend, backend, and deploy repositories. It keeps the approval review aligned with the files that will be committed or pushed.
 
 ## Pull Request Flow
 
@@ -395,12 +449,11 @@ hotfix/**-staging
 
 Then they open PRs to the correct target branch.
 
-The deploy repository has only `main`. `deploy/main` should also be protected:
-
-- no direct push;
-- PR required;
-- review required;
-- documentation or CI checks can be added later.
+The deploy repository has only `main` and does not use the frontend/backend
+protected-branch model. Authorized deployment maintainers may push validated
+deployment changes directly to `deploy/main`; a push still does not start a
+runtime deployment. Use the manual deployment workflow and the staging-first
+validation rule for shared deployment behavior.
 
 ## Migration And Seeder Policy
 
@@ -718,7 +771,9 @@ merge
 CD redeploys
 ```
 
-There is no direct injection into GitHub and no direct change to protected branches without PR.
+Frontend and backend protected branches must still be changed through the PR flow;
+the deploy repository remains the documented exception and accepts validated
+deployment changes directly on `deploy/main`.
 
 For production rollback, create a hotfix or rollback branch from `main`.
 

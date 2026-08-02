@@ -25,6 +25,17 @@ Application image definitions stay in the application repositories:
 - [Release Flow](docs/release-flow.md)
   Defines branch-to-deploy flow, pull request flow, CI/CD triggers, branch protection, migration and seeder policy, multi-repo coordination, health checks, rollback, naming convention, environment secrets, and CI test level.
 
+## Branch Model
+
+The application repositories use separate `main`, `staging`, and Jira task
+branches. This deployment repository uses only the long-lived `main` branch.
+It has no persistent `staging` or `*-staging` branch.
+
+Deployment configuration changes are committed and pushed directly to
+`deploy/main`. Pushing `main` only synchronizes repository files; it does not
+automatically deploy or restart an environment. Use the matching manual GitHub
+Actions workflow when runtime changes are required.
+
 ## Trusted Client IP Configuration
 
 Set `TRUSTED_EDGE_PROXY` to the Cloudflare Tunnel connector source address and

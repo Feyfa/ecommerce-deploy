@@ -1,10 +1,15 @@
 # Branching Strategy
 
-This document defines the branch strategy used by the ecommerce repositories.
+This document defines the branch strategy used by the frontend and backend
+repositories.
 
 The frontend and backend are separate repositories, but both repositories use the
 same branch roles and release flow. The goal is to let staging contain unfinished
 integration work without accidentally shipping that work to production.
+
+The deploy repository is intentionally different: it uses only its long-lived
+`main` branch and does not create a persistent `staging` or `*-staging` branch.
+Its change and deployment procedure is defined in `release-flow.md`.
 
 ## Branch Roles
 
@@ -77,6 +82,23 @@ hotfix/jd-tok-10
 `hotfix/*-staging` can be used when a hotfix also needs staging integration and
 `staging` has conflicts or staging-only changes. It merges directly into
 `staging`; it is not a production source branch.
+
+## Jira Task Branch Preconditions
+
+Before changing frontend or backend code, the Jira task identity must be clear.
+The work type, responsible initials, Jira issue key, and expected branch name
+must be known before implementation starts.
+
+If any of these details are unclear, stop before editing code, creating a
+branch, committing, pushing, or opening a pull request. Explain the expected
+branch format to the user and ask for the missing Jira information. Do not
+invent a Jira key or use `main` or `staging` as an implementation workspace.
+
+The main Jira task branch is a required implementation prerequisite. It must be
+created or checked out before the first code change. Verify that the active
+branch is the expected task branch before implementation and after every branch
+switch. If the active branch is `main`, `staging`, or unrelated to the Jira
+task, stop implementation until the correct task branch is active.
 
 ## Jira Task Branch Flow
 
