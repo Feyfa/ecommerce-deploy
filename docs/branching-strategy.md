@@ -139,6 +139,19 @@ Environment synchronization is mandatory but remains isolated by purpose:
   staging release;
 - never merge a main Jira task branch directly into `staging`.
 
+### Staging Branch Source Invariant
+
+Before creating or refreshing a Jira task `*-staging` branch, update the local
+`staging` branch with `git pull --ff-only origin staging`. The task staging
+branch must be created from the completed main Jira task branch, then updated
+by merging the refreshed local `staging` branch.
+
+`origin/staging` is a remote-tracking reference, not a replacement for the
+local `staging` branch. Do not create or reset a task staging branch with
+`git switch -c/-C <task>-staging origin/staging` or
+`git checkout -b/-B <task>-staging origin/staging`. If the task staging branch
+already exists, switch to it and update it; do not recreate or reset it.
+
 Before continuing to either staging or production, sync the main Jira task
 branch with the latest `main`:
 

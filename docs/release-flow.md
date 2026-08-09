@@ -21,6 +21,24 @@ main
 
 The deploy repository is the single source of truth for Docker Compose files, Nginx reverse proxy files, deploy scripts, environment examples, and deployment documentation.
 
+## Evidence-First Release Preflight
+
+Before answering or acting on a project-specific release request:
+
+- Read the relevant workspace and repository `AGENTS.md` files and the release
+  documentation before choosing a workflow.
+- Inspect the current implementation, configuration, repository status, active
+  branch, local branches, and remote references that are relevant to the task.
+- Treat the current repository state as the primary evidence. Separate verified
+  facts from unresolved assumptions and do not use an unverified assumption as
+  the basis for a branch, merge, commit, push, or deployment operation.
+- If the user interrupts, corrects, or asks for the instructions or situation
+  to be reread, repeat this preflight against the current state before
+  continuing.
+- Execute every command below as a separate terminal invocation. Do not paste
+  multiple Git commands joined by `&&`, `;`, command substitution, or a
+  multiline shell block. Wait for each result before running the next command.
+
 Before implementation starts in the frontend or backend repositories, confirm
 that the Jira task identity and branch name are clear. The work type,
 responsible initials, and Jira issue key are required to derive the branch name.
@@ -92,6 +110,20 @@ Complete, validate, and commit the intended implementation in the main Jira task
 branch before preparing its staging integration branch. If the staging branch
 does not exist yet, update both long-lived source branches first:
 
+The local `staging` branch is the source of truth for task staging preparation.
+`origin/staging` is only a local remote-tracking reference and is not a
+substitute for updating the local branch. Never create or reset a task staging
+branch directly from `origin/staging`.
+
+Do not use these shortcuts for the normal staging flow:
+
+```bash
+git switch -c bug/jd-tok-7-staging origin/staging
+git switch -C bug/jd-tok-7-staging origin/staging
+git checkout -b bug/jd-tok-7-staging origin/staging
+git checkout -B bug/jd-tok-7-staging origin/staging
+```
+
 ```bash
 git switch main
 git pull --ff-only origin main
@@ -100,10 +132,10 @@ git switch staging
 git pull --ff-only origin staging
 
 git switch bug/jd-tok-7
-git merge main
+git merge --no-edit main
 
 git switch -c bug/jd-tok-7-staging
-git merge staging
+git merge --no-ff --no-edit staging
 ```
 
 Resolve and validate production-source conflicts in the main Jira task branch.
@@ -122,11 +154,11 @@ git switch staging
 git pull --ff-only origin staging
 
 git switch bug/jd-tok-7
-git merge main
+git merge --no-edit main
 
 git switch bug/jd-tok-7-staging
-git merge bug/jd-tok-7
-git merge staging
+git merge --no-edit bug/jd-tok-7
+git merge --no-ff --no-edit staging
 ```
 
 This task-branch preparation flow applies to the frontend and backend
@@ -145,21 +177,21 @@ Use merge for sync. Do not use rebase.
 Production task sync example:
 
 ```bash
-git checkout main
-git pull origin main
+git switch main
+git pull --ff-only origin main
 
-git checkout bug/jd-tok-7
-git merge main
+git switch bug/jd-tok-7
+git merge --no-edit main
 ```
 
 Staging task sync example:
 
 ```bash
-git checkout staging
-git pull origin staging
+git switch staging
+git pull --ff-only origin staging
 
-git checkout bug/jd-tok-7-staging
-git merge staging
+git switch bug/jd-tok-7-staging
+git merge --no-ff --no-edit staging
 ```
 
 If the PR still conflicts after normal sync, resolve the conflict in the Jira task branch based on the PR target.
@@ -173,11 +205,11 @@ main Jira task branch -> main
 merge the target branch into the main Jira task branch:
 
 ```bash
-git checkout main
-git pull origin main
+git switch main
+git pull --ff-only origin main
 
-git checkout bug/jd-tok-7
-git merge main
+git switch bug/jd-tok-7
+git merge --no-edit main
 ```
 
 For a staging PR conflict:
@@ -189,11 +221,11 @@ Jira task staging branch -> staging
 merge the target branch into the Jira task staging branch:
 
 ```bash
-git checkout staging
-git pull origin staging
+git switch staging
+git pull --ff-only origin staging
 
-git checkout bug/jd-tok-7-staging
-git merge staging
+git switch bug/jd-tok-7-staging
+git merge --no-ff --no-edit staging
 ```
 
 Resolve conflicts in the Jira task branch, commit, push, and let the PR update. Do not resolve conflicts directly in `main` or `staging`.
@@ -203,6 +235,13 @@ Resolve conflicts in the Jira task branch, commit, push, and let the PR update. 
 Use merge for this workflow. Do not use rebase as part of the shared release flow.
 
 This keeps the workflow easier to understand and avoids rewriting history that has already been shared.
+
+When a local integration merge must create a merge commit, use
+`git merge --no-ff --no-edit <local-branch>`. The `--no-edit` option keeps Git's
+generated merge message, such as `Merge branch 'staging' into bug/jd-tok-7-staging`,
+without requiring a custom message. For ordinary synchronization that may
+fast-forward, use `git merge --no-edit <local-branch>` without `--no-ff`. Do not
+pass `-m` to `git merge` in this workflow.
 
 Do not merge:
 

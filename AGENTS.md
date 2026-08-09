@@ -24,7 +24,7 @@ task-branch flow does not apply here.
 
 Repository documentation is available in the `docs/` directory.
 
-Before changing deployment configuration or automation:
+Before answering or acting on a deployment-specific request:
 
 1. Identify the environments, services, and deployment flows related to the task.
 2. Search for and read the relevant documentation in `docs/`. Do not read every document unless the task requires it.
@@ -32,6 +32,8 @@ Before changing deployment configuration or automation:
 4. Follow the architecture, patterns, and configuration style already used in this repository.
 5. Preserve the existing writing and configuration style, including whitespace and formatting. Do not reformat or change style unless the task explicitly requests it or the change is required for correctness.
 6. Update the relevant documentation when a change affects environment variables, containers, servers, pipelines, provisioning, release flows, rollback procedures, or the developer workflow.
+7. Treat the current configuration and repository state as the primary evidence. Separate verified facts from unresolved assumptions and do not use unverified assumptions as the basis for a change or operational action.
+8. If the user interrupts, corrects, or asks for the instructions or situation to be reread, stop and repeat this preflight against the current state before continuing.
 
 Review the relevant documentation before modifying containers, server configuration, environment variables, pipelines, provisioning, branching strategy, release flows, or deployment procedures.
 
@@ -70,6 +72,11 @@ Do not add these markers to purely declarative YAML that has no embedded procedu
 Add contextual comments when they explain operational intent, security boundaries, ordering dependencies, environment differences, failure recovery, compatibility requirements, or deployment risks. Avoid comments that merely repeat commands or configuration keys.
 
 ## Git and Commit Workflow
+
+Execute one Git command per terminal invocation. Do not chain Git commands with
+`&&`, `;`, command substitution, or a multiline shell block. Wait for each
+result before running the next command, and run status or log checks as separate
+commands.
 
 Before proposing or creating a commit:
 
