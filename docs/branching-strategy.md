@@ -125,6 +125,11 @@ into the staging integration branch. Do not create the staging branch merely
 because the task is expected to go to staging later, and do not use the
 `*-staging` branch as the primary workspace for unfinished task work.
 
+If CI runs for main task branch pushes, wait for it to pass before creating or
+refreshing the task staging branch. If no such CI exists, continue immediately
+after the push; the push is a remote checkpoint, not a stopping point in the
+staging preparation workflow.
+
 When the task staging branch already exists, merge the latest main task branch
 into it after every new source-branch change. Do not recreate the staging
 branch and do not copy individual files manually.
@@ -151,6 +156,19 @@ local `staging` branch. Do not create or reset a task staging branch with
 `git switch -c/-C <task>-staging origin/staging` or
 `git checkout -b/-B <task>-staging origin/staging`. If the task staging branch
 already exists, switch to it and update it; do not recreate or reset it.
+
+A new task staging branch must be created while the completed main Jira task
+branch is checked out. Immediately before creating it, run
+`git branch --show-current` and require the output to exactly match the main
+task branch name. Never create the branch while `main`, `staging`, or another
+branch is checked out.
+
+Application integration merges must use refreshed local branches. Update local
+`main` and `staging` with `git pull --ff-only` first, then merge the local
+`main`, `staging`, or Jira task branch name. Do not use `origin/main`,
+`origin/staging`, or `origin/<task>` as direct `git merge` sources. This does
+not prohibit using remote references for `git fetch`, `git pull --ff-only`, or
+`git push`.
 
 Before continuing to either staging or production, sync the main Jira task
 branch with the latest `main`:

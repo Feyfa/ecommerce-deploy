@@ -106,14 +106,35 @@ bug/jd-tok-7
   -> bug/jd-tok-7-staging
 ```
 
-Complete, validate, and commit the intended implementation in the main Jira task
-branch before preparing its staging integration branch. If the staging branch
-does not exist yet, update both long-lived source branches first:
+Complete, validate, commit, and push the intended implementation in the main
+Jira task branch before preparing its staging integration branch. If the
+staging branch does not exist yet, update both long-lived source branches
+first:
 
 The local `staging` branch is the source of truth for task staging preparation.
 `origin/staging` is only a local remote-tracking reference and is not a
 substitute for updating the local branch. Never create or reset a task staging
 branch directly from `origin/staging`.
+
+A new task staging branch must be created while the completed main Jira task
+branch is checked out. Immediately before `git switch -c <task>-staging`, run
+`git branch --show-current` and require the output to exactly match `<task>`.
+Never create the branch while `main`, `staging`, or another branch is checked
+out.
+
+Application integration merges must use refreshed local branch names. Update
+local `main` and `staging` with `git pull --ff-only`, then merge `main`,
+`staging`, or the local Jira task branch. Do not run:
+
+```bash
+git merge origin/main
+git merge origin/staging
+git merge origin/<task>
+```
+
+This restriction does not prohibit `git fetch`, `git pull --ff-only`, or
+`git push`; it prevents remote-tracking references from becoming direct merge
+sources for application integration.
 
 Do not use these shortcuts for the normal staging flow:
 
@@ -134,13 +155,23 @@ git pull --ff-only origin staging
 git switch bug/jd-tok-7
 git merge --no-edit main
 
+git push -u origin bug/jd-tok-7
+
+# Wait for task branch CI here when configured.
+
+git branch --show-current
+
 git switch -c bug/jd-tok-7-staging
 git merge --no-ff --no-edit staging
+
+git push -u origin bug/jd-tok-7-staging
 ```
 
 Resolve and validate production-source conflicts in the main Jira task branch.
-Resolve staging conflicts in the staging integration branch. Push both branches
-only after their merges and relevant validation succeed.
+Push the main task branch after it passes local validation. If CI runs for task
+branch pushes, wait for it to pass before creating the task staging branch; if
+no such CI exists, continue immediately after the push. Resolve and validate
+staging conflicts in the staging integration branch, then push that branch.
 
 If the staging integration branch already exists, do not recreate it. Refresh
 the long-lived branches, merge `main` into the main Jira task branch, then carry
@@ -156,10 +187,21 @@ git pull --ff-only origin staging
 git switch bug/jd-tok-7
 git merge --no-edit main
 
+git push -u origin bug/jd-tok-7
+
+# Wait for task branch CI here when configured.
+
 git switch bug/jd-tok-7-staging
 git merge --no-edit bug/jd-tok-7
 git merge --no-ff --no-edit staging
+
+git push -u origin bug/jd-tok-7-staging
 ```
+
+Validate and push the refreshed main task branch before switching to the
+existing task staging branch. Apply the same optional task-push CI gate used
+for a new staging branch, then validate and push the refreshed task staging
+branch.
 
 This task-branch preparation flow applies to the frontend and backend
 repositories. It does not apply to the deploy repository, which uses only

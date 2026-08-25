@@ -37,6 +37,30 @@ Before answering or acting on a deployment-specific request:
 
 Review the relevant documentation before modifying containers, server configuration, environment variables, pipelines, provisioning, branching strategy, release flows, or deployment procedures.
 
+## Incremental Change Batches
+
+Make file changes incrementally around one clear objective or behavior at a
+time so that a human reviewer can understand the purpose and scope of each
+batch.
+
+- Do not combine independent objectives into one batch of edits.
+- Before each batch, explain its objective, the files expected to change, and
+  why each file belongs to that objective.
+- Use the smallest practical file batch that keeps the implementation
+  consistent and allows meaningful validation.
+- When an objective requires only one file, edit and validate that file before
+  proceeding to another independent objective.
+- Multiple files may be changed together only when they implement or verify
+  one shared contract or inseparable behavior. Explain that relationship before
+  editing them.
+- After each batch, inspect the actual diff and report the files changed, the
+  resulting behavior, and the validation performed before starting another
+  independent objective.
+- Do not implement an entire multi-objective task first and explain all changes
+  only after the full task is complete.
+- If the required scope expands beyond the announced batch, explain the new
+  file and reason before editing it.
+
 ## Related Repositories
 
 The project may include separate frontend and backend repositories. If a task affects another repository and that repository is available in the workspace, inspect its code and documentation as well. Do not assume that related repositories are always available or located at a specific path.
