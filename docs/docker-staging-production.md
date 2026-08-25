@@ -147,28 +147,84 @@ Expected responsibilities:
 
 Database backup and restore instructions should be added before production is considered ready for real use.
 
-### Redis Future Direction
+### Transactional Outbox, Redis Queue, And Meilisearch
 
-Redis is not part of the first Docker deployment stack because the current backend does not have active queued jobs and still uses synchronous queue execution.
+Redis and Meilisearch are internal Docker services for the buyer product search
+feature. Redis persists its append-only data in a named volume and provides the
+Laravel queue connection. Meilisearch persists its rebuildable index in a
+separate named volume and requires `MEILISEARCH_KEY` in the backend environment.
 
-Redis should be added later when the application needs:
+The backend environment sets `BUYER_PRODUCT_SEARCH_MAX_TOTAL_HITS=10000`.
+Laravel applies that Meilisearch pagination boundary together with the final
+`id:asc` ranking tie-breaker during reindex. The limit controls how deeply one
+broad result set may be browsed; it does not cap PostgreSQL products. Measure
+search latency and resource usage before raising it.
 
-- Laravel queue workers with `QUEUE_CONNECTION=redis`;
-- cache storage with `CACHE_DRIVER=redis`;
-- realtime infrastructure for websocket/chat features;
-- higher-throughput async jobs that should not run inside HTTP requests.
+Business mutations commit their synchronization intent to PostgreSQL
+`outbox_messages`. `backend-scheduler` publishes due messages to Redis, and
+`backend-worker` applies them to Meilisearch. This lets `backend-php` depend only
+on healthy PostgreSQL: Redis or Meilisearch downtime must not prevent product,
+company, Clerk, or checkout mutations from committing.
 
-When Redis is added, it should be a separate Docker Compose service and should stay internal to the Docker network by default.
+`backend-worker` uses the same backend image as the API, waits for PostgreSQL,
+Redis, and Meilisearch, and processes only the `buyer-catalog-search` queue
+with explicit retry, backoff, and timeout settings. Neither Redis nor
+Meilisearch publishes a host port; use `docker compose logs backend-worker`
+and `docker compose ps` for operational inspection.
 
-### Scheduler Future Direction
+The backend environment sets `REDIS_QUEUE_RETRY_AFTER=180`, which must remain
+longer than the longest application job timeout. The current longest search job
+timeout is 120 seconds. Review both values together whenever queue job timeouts
+change so Redis cannot deliver the same job to another worker too early.
 
-The scheduler is not part of the first Docker deployment stack because the backend does not currently define active scheduled tasks.
+After a first deployment or a recovery, run `php artisan buyer-search:reindex`
+inside `backend-php`. The command applies Laravel-owned index settings and
+queues the complete PostgreSQL catalog. Meilisearch snapshots or backups are
+helpful for recovery speed, but PostgreSQL plus this command remains the source
+of recovery truth.
 
-When real schedules are added in `app/Console/Kernel.php`, add a separate scheduler service that uses the backend image and runs:
+The command clears the derived index before dispatching jobs, so the buyer
+catalog can be temporarily empty. A successful command exit only proves that
+jobs were dispatched. Before ending the maintenance or recovery window:
+
+1. Confirm `backend-worker`, `backend-scheduler`, Redis, and Meilisearch are healthy in
+   `docker compose ps`.
+2. Run `php artisan outbox:status` in `backend-php` and resolve overdue pending
+   or terminal failed publisher messages.
+3. Run
+   `php artisan queue:monitor redis:buyer-catalog-search --max=1` in
+   `backend-php` until it reports `[0] OK`.
+4. Run `php artisan queue:failed` and resolve every search synchronization
+   failure before retrying it.
+5. Inspect the configured Meilisearch index statistics and confirm eligible
+   product documents exist.
+6. Perform an authenticated buyer-catalog smoke test, including a keyword or
+   filter and a response with `page`, `per_page`, and `has_more`.
+
+Concrete staging Compose commands are maintained in
+[Deployment](deployment.md#local-stack-validation). Apply the equivalent
+production commands only after staging verification succeeds.
+
+### Laravel Scheduler
+
+Each environment runs exactly one `backend-scheduler` service using the backend
+image and this command:
 
 ```text
 php artisan schedule:work
 ```
+
+It depends only on healthy PostgreSQL, mounts the shared backend log volume,
+uses `restart: unless-stopped`, and receives a graceful stop period. It runs the
+outbox publisher every minute with overlap protection and prunes published
+outbox history daily at 02:00 WIB. Laravel derives this schedule from the
+application timezone `Asia/Jakarta`, independently of the host or container
+operating-system timezone.
+
+Docker is the process monitor for both scheduler and worker. Do not install
+Supervisor inside the containers and do not add a VM crontab for Laravel
+Scheduler. Keep these as separate one-process containers so their health,
+restart, logs, and scaling remain independent.
 
 ### Websocket Server
 
@@ -420,7 +476,7 @@ The first topology can be expanded when there is a real need.
 Possible future steps:
 
 - Move PostgreSQL to a dedicated data VM when database resource usage, data safety, or backup needs become more serious.
-- Add Redis and queue workers when the application has real queued jobs, cache pressure, or realtime infrastructure needs.
+- Scale Redis, scheduler publishing, and queue workers only when observed backlog or throughput requires it.
 - Move the websocket server to a dedicated VM when realtime connection count grows or websocket deploys need to be isolated from API deploys.
 - Serve frontend assets through CDN or static hosting when static traffic grows or frontend releases need a separate delivery path.
 - Add multiple backend API instances behind a load balancer when HTTP traffic requires horizontal scaling.

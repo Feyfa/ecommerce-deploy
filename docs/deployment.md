@@ -2,11 +2,20 @@
 
 This repository owns the deployment stack for the ecommerce frontend and backend.
 
-The frontend and backend repositories build their own application images. This repository runs those images together with PostgreSQL and the Nginx reverse proxy.
+The frontend and backend repositories build their own application images. This
+repository runs those images together with PostgreSQL, Redis, Meilisearch, the
+buyer-search queue worker, Laravel Scheduler, and the Nginx reverse proxy.
 
-Redis is intentionally not included in the first stack. It should be added later when the backend starts using Redis as the Laravel queue driver, cache driver, or realtime/websocket support service.
+Redis is an internal Laravel queue service. Meilisearch is an internal,
+rebuildable buyer catalog projection protected by a required master key. The
+`backend-worker` container uses the backend image and consumes the
+`buyer-catalog-search` queue; inspect its logs with
+`docker compose logs backend-worker`.
 
-The Laravel scheduler is also intentionally not included in the first stack because the backend does not currently define active scheduled tasks. Add a separate scheduler service later when `app/Console/Kernel.php` contains real schedule entries.
+The `backend-scheduler` container uses the same image and runs
+`php artisan schedule:work`. It publishes transactional outbox messages every
+minute and prunes published history daily. Docker monitors both long-running
+processes, so the VM does not run Supervisor or a manual application crontab.
 
 ## Repository Layout
 
@@ -46,7 +55,58 @@ Run migrations and any required specific seeders after the containers are up:
 ```bash
 docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan migrate --force
 docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan outbox:status
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan buyer-search:reindex
 ```
+
+`buyer-search:reindex` clears the derived buyer index and dispatches
+synchronization jobs; it does not wait for the queue to drain. Keep this
+controlled maintenance window open and verify completion before using the
+catalog as a deployment signal:
+
+The same reindex applies the Laravel-owned deterministic `id:asc` tie-breaker
+and `pagination.maxTotalHits=10000`. Treat 10,000 as a browsing boundary rather
+than a PostgreSQL product limit, and monitor buyer-search latency before any
+future increase.
+
+```bash
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml ps backend-worker backend-scheduler redis meilisearch
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan outbox:status
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan queue:monitor redis:buyer-catalog-search --max=1
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan queue:failed
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan tinker --execute="dump(app(\\Meilisearch\\Client::class)->index(config('buyer_product_search.index'))->stats());"
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml logs --tail=100 backend-worker
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml logs --tail=100 backend-scheduler
+```
+
+The outbox must have no overdue pending or terminal failed messages, the queue
+must drain to zero, failed jobs must be resolved, index statistics must contain
+the expected documents, and an authenticated buyer-catalog smoke test must
+return expected cards and pagination. Use the equivalent production Compose
+file and environment files only after this sequence passes on staging.
+
+### First Transactional-Outbox Rollout
+
+Perform the first outbox rollout on staging in a controlled maintenance window:
+
+1. Before replacing the old backend, keep its worker running until the legacy
+   `queue:monitor redis:search --max=1` reports `[0] OK` and inspect
+   `queue:failed`.
+2. Deploy the matching backend and deployment revisions so producers and the
+   worker switch to `buyer-catalog-search` together. The new publisher exits
+   safely while `outbox_messages` is not yet available.
+3. Run `php artisan migrate --force`, then confirm `backend-scheduler` and
+   `backend-worker` are running.
+4. Run `php artisan outbox:status`, then execute
+   `php artisan buyer-search:reindex` while the maintenance window remains open.
+5. Wait for the outbox and queue to drain, resolve failures, inspect both
+   container logs, and smoke-test authenticated buyer search.
+6. Prove outage recovery by stopping Redis, updating a product and performing a
+   checkout, confirming pending outbox messages, restoring Redis, and observing
+   the messages become `published` after the worker updates Meilisearch.
+
+Do not repeat the production rollout until the complete staging sequence has
+passed. PostgreSQL remains authoritative while Meilisearch temporarily lags.
 
 Stop the local validation stack:
 
@@ -72,6 +132,20 @@ Production uses the same pattern under `env/production`.
 `frontend.env` is the clean server environment for the frontend build and public HTTP port settings.
 
 Set a real `APP_KEY` in each `backend.env` before starting staging or production. Do not leave it empty outside the committed `.example` files.
+
+Set a distinct, high-entropy `MEILISEARCH_KEY` in each backend environment file.
+It is shared only by internal Laravel containers and the internal Meilisearch
+container; never put it in the frontend environment or commit a real key.
+
+Keep `BUYER_PRODUCT_SEARCH_MAX_TOTAL_HITS=10000` aligned between the backend
+revision and each deployment environment. Changing it has no effect until the
+Laravel-owned index settings are applied through `buyer-search:reindex`.
+
+Transactional outbox limits are exposed as `OUTBOX_*` values in each backend
+environment example. Their defaults provide 20 publish attempts, 100 messages
+per batch, 10 batches per minute, a five-minute stale-claim window, retry
+backoff from 60 seconds to six hours, and seven-day published retention. Change
+them only with corresponding backend capacity and recovery validation.
 
 The public reverse proxy and Laravel trusted-proxy boundary use values from
 `backend.env`:

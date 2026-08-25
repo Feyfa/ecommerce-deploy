@@ -60,6 +60,37 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  backend-worker:
+    image: ecommerce-backend:production
+    env_file:
+      - ../env/production/backend.env
+    command: ["php", "artisan", "queue:work", "redis", "--queue=buyer-catalog-search", "--sleep=1", "--tries=3", "--backoff=5", "--timeout=60", "--max-time=3600"]
+    volumes:
+      - backend_public_storage:/var/www/html/storage/app/public
+      - backend_logs:/var/www/html/storage/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    stop_grace_period: 150s
+    restart: unless-stopped
+
+  backend-scheduler:
+    image: ecommerce-backend:production
+    env_file:
+      - ../env/production/backend.env
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - backend_logs:/var/www/html/storage/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 90s
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     env_file:
@@ -73,7 +104,35 @@ services:
       retries: 5
     restart: unless-stopped
 
+  redis:
+    image: redis:8.4.5-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.53.0
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY:?MEILISEARCH_KEY is required}
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:7700/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   backend_public_storage:
   backend_logs:
+  redis_data:
+  meilisearch_data:
