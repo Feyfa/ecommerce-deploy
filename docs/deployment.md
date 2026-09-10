@@ -145,6 +145,15 @@ Keep `BUYER_PRODUCT_SEARCH_PER_PAGE=50` aligned with the backend default. The
 frontend sends this value explicitly, while the environment value controls
 clients that omit `per_page`; changing it does not require a Meilisearch reindex.
 
+Seller pagination separately uses `SELLER_PRODUCT_PER_PAGE=50` as its fallback
+and `SELLER_PRODUCT_MAX_PER_PAGE=50` to validate requested batch sizes. The
+frontend sends 50 explicitly, so keep the maximum at least 50 for that build.
+The backend normalizes the configured maximum to at least 1 and the default
+to 1 through the maximum. Requests above the maximum return HTTP 422.
+These settings affect database batch sizes, not total catalog visibility;
+they require no migration or Meilisearch reindex. Apply environment changes
+through the normal backend rollout so Laravel loads the updated configuration.
+
 Transactional outbox limits are exposed as `OUTBOX_*` values in each backend
 environment example. Their defaults provide 20 publish attempts, 100 messages
 per batch, 10 batches per minute, a five-minute stale-claim window, retry
