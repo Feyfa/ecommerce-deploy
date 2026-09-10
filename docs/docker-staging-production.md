@@ -154,7 +154,8 @@ feature. Redis persists its append-only data in a named volume and provides the
 Laravel queue connection. Meilisearch persists its rebuildable index in a
 separate named volume and requires `MEILISEARCH_KEY` in the backend environment.
 
-The backend environment sets `BUYER_PRODUCT_SEARCH_MAX_TOTAL_HITS=10000`.
+The backend environment sets `BUYER_PRODUCT_SEARCH_PER_PAGE=50` and
+`BUYER_PRODUCT_SEARCH_MAX_TOTAL_HITS=10000`.
 Laravel applies that Meilisearch pagination boundary together with the final
 `id:asc` ranking tie-breaker during reindex. The limit controls how deeply one
 broad result set may be browsed; it does not cap PostgreSQL products. Measure

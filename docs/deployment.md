@@ -141,6 +141,10 @@ Keep `BUYER_PRODUCT_SEARCH_MAX_TOTAL_HITS=10000` aligned between the backend
 revision and each deployment environment. Changing it has no effect until the
 Laravel-owned index settings are applied through `buyer-search:reindex`.
 
+Keep `BUYER_PRODUCT_SEARCH_PER_PAGE=50` aligned with the backend default. The
+frontend sends this value explicitly, while the environment value controls
+clients that omit `per_page`; changing it does not require a Meilisearch reindex.
+
 Transactional outbox limits are exposed as `OUTBOX_*` values in each backend
 environment example. Their defaults provide 20 publish attempts, 100 messages
 per batch, 10 batches per minute, a five-minute stale-claim window, retry
