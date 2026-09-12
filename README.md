@@ -34,10 +34,11 @@ short-lived Jira task branches for reviewed changes. It has no persistent
 
 Create deployment changes from the latest `deploy/main` in a branch such as
 `task/jd-tok-38`, then push the branch and open a pull request to `main`.
-Deploy CI and Release Branch Policy must pass before merge. Merging to `main`
-only synchronizes repository files; it does not automatically deploy or restart
-an environment. Use the matching manual GitHub Actions workflow when runtime
-changes are required.
+Wait for the push-triggered Deploy CI to pass before continuing to the pull
+request. Deploy CI and Release Branch Policy must also pass on the pull request
+before merge. Merging to `main` only synchronizes repository files; it does not
+automatically deploy or restart an environment. Use the matching manual GitHub
+Actions workflow when runtime changes are required.
 
 ## Trusted Client IP Configuration
 

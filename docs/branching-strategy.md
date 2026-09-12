@@ -127,14 +127,19 @@ into the staging integration branch. Do not create the staging branch merely
 because the task is expected to go to staging later, and do not use the
 `*-staging` branch as the primary workspace for unfinished task work.
 
-If CI runs for main task branch pushes, wait for it to pass before creating or
-refreshing the task staging branch. If no such CI exists, continue immediately
-after the push; the push is a remote checkpoint, not a stopping point in the
-staging preparation workflow.
+Wait for main task branch push CI to pass before refreshing the long-lived
+branches. Merge the refreshed local `main` into the main task branch and compare
+the task branch HEAD before and after the merge. If HEAD changed, validate,
+push, and wait for CI again. If HEAD did not change, do not push again and retain
+the successful CI result for that unchanged commit.
 
 When the task staging branch already exists, merge the latest main task branch
 into it after every new source-branch change. Do not recreate the staging
 branch and do not copy individual files manually.
+
+After merging the refreshed local `staging` and validating the task staging
+branch, push it and wait for task-branch CI to pass before its pull request may
+be merged into `staging`.
 
 Environment synchronization is mandatory but remains isolated by purpose:
 
