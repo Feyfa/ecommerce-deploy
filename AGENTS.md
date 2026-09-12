@@ -6,14 +6,19 @@ This repository contains deployment configuration and operational workflows.
 
 ## Branch Model And Change Flow
 
-The deployment repository has one long-lived branch: `main`. The application
-task-branch flow does not apply here.
+The deployment repository has one long-lived branch, `main`, and uses Jira task
+branches as short-lived review branches. Its flow does not use the application
+task staging branch model.
 
-- Do not create a deploy `staging` branch or persistent deploy `*-staging`
-  branches.
-- Make deployment repository changes on `main` and push them directly to
-  `origin/main` after local validation.
-- A push to `main` synchronizes deployment configuration but does not deploy or
+- Do not create a deploy `staging` branch or deploy `*-staging` branches.
+- Before changing deployment files, verify the Jira work type, responsible
+  initials, issue key, and expected branch name.
+- Create a new deploy task branch from the latest `main`, using the same
+  `{work-type}/{initial}-{jira-key}` convention as the application repositories.
+- Do not implement deployment changes directly on `main`.
+- Push the deploy task branch, wait for Deploy CI and Release Branch Policy to
+  pass, and merge it into `main` through a pull request.
+- A merge to `main` synchronizes deployment configuration but does not deploy or
   restart the runtime automatically.
 - Run the matching manual `Sync Deploy`, `Deploy`, `Migrate`, or `Seed` workflow
   when the change needs to reach an environment.
@@ -112,7 +117,7 @@ Before proposing or creating a commit:
 
 Use the staged diff as the primary commit scope when files are staged. Review `git diff --cached --stat` and `git diff --cached`, not only the changed file names. If nothing is staged and the user requests a message for working-tree changes, inspect the explicitly scoped actual diff and relevant untracked content and state when the prospective scope cannot yet be determined precisely.
 
-When staging deployment changes, add only the explicitly reviewed files with exact paths. Use `git add -- <file>` for each intended file, or list several exact paths in one command. Never use `git add -A`, `git add .`, `git add --all`, or broad globs. After staging, inspect `git diff --cached --name-status`, `git diff --cached --stat`, and `git diff --cached` so the approval clearly shows which files will be committed and pushed to `deploy/main`.
+When staging deployment changes, add only the explicitly reviewed files with exact paths. Use `git add -- <file>` for each intended file, or list several exact paths in one command. Never use `git add -A`, `git add .`, `git add --all`, or broad globs. After staging, inspect `git diff --cached --name-status`, `git diff --cached --stat`, and `git diff --cached` so the approval clearly shows which files will be committed and pushed to the deploy task branch.
 
 ### Commit Scope and Atomicity
 
