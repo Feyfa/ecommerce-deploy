@@ -13,13 +13,16 @@ main
 staging
 ```
 
-The deploy repository uses only:
+The deploy repository has only one long-lived branch:
 
 ```text
 main
 ```
 
-The deploy repository is the single source of truth for Docker Compose files, Nginx reverse proxy files, deploy scripts, environment examples, and deployment documentation.
+Short-lived deploy Jira task branches merge into `main` through pull requests.
+The deploy repository is the single source of truth for Docker Compose files,
+Nginx reverse proxy files, deploy scripts, environment examples, and deployment
+documentation.
 
 ## Evidence-First Release Preflight
 
@@ -203,9 +206,9 @@ existing task staging branch. Apply the same optional task-push CI gate used
 for a new staging branch, then validate and push the refreshed task staging
 branch.
 
-This task-branch preparation flow applies to the frontend and backend
-repositories. It does not apply to the deploy repository, which uses only
-`main` as described in the Deploy Repository Flow section.
+This task-staging preparation flow applies to the frontend and backend
+repositories. The deploy repository uses Jira task branches without matching
+`*-staging` branches, as described in the Deploy Repository Flow section.
 
 Normal sync before PR:
 
@@ -337,27 +340,34 @@ unrelated documentation change merely for the release process.
 
 ## Deploy Repository Flow
 
-The deploy repository uses only the long-lived `main` branch. The frontend and
-backend Jira task-branch flow does not apply to this repository: do not create a
-deploy `staging` branch or persistent deploy `*-staging` branches.
+The deploy repository has only one long-lived branch, `main`. Use short-lived
+Jira task branches for deployment changes, but do not create a deploy `staging`
+branch or deploy `*-staging` branches.
 
-Normal deployment repository changes are made on `main`, validated locally,
-committed, and pushed directly to `origin/main`:
+Before implementation, confirm the Jira work type, responsible initials, issue
+key, and expected branch name. Create the task branch from the latest `main`:
 
 ```bash
 git switch main
 git pull --ff-only origin main
 
-# edit and validate the deployment files
-git add <deployment-files>
-git commit -m "<deployment change>"
-git push origin main
+git switch -c task/jd-tok-38
 ```
 
-Pushing `deploy/main` synchronizes repository files only. It does not rebuild
-containers, restart services, run migrations, run seeders, or otherwise apply a
-runtime change. Use the appropriate manual workflow when the change must reach
-staging or production.
+After editing and local validation, commit and push the task branch, then open a
+pull request to `main`. Deploy CI and Release Branch Policy must pass before the
+pull request is merged. Required reviewer approval remains zero so a maintainer
+can complete safe solo work, while unresolved review conversations still block
+the merge.
+
+The deploy branch policy accepts `feature/**`, `story/**`, `bug/**`, `task/**`,
+and `hotfix/**` source branches. It rejects `main`, `staging`, and any
+`*-staging` source branch.
+
+Merging into `deploy/main` synchronizes repository files only. It does not
+rebuild containers, restart services, run migrations, run seeders, or otherwise
+apply a runtime change. Use the appropriate manual workflow when the change
+must reach staging or production.
 
 If the deploy repository changes only staging-specific files, pull `deploy/main` on staging and run the staging deploy only when needed. Production can pull for synchronization, but does not need a production deploy.
 
@@ -530,11 +540,11 @@ hotfix/**-staging
 
 Then they open PRs to the correct target branch.
 
-The deploy repository has only `main` and does not use the frontend/backend
-protected-branch model. Authorized deployment maintainers may push validated
-deployment changes directly to `deploy/main`; a push still does not start a
-runtime deployment. Use the manual deployment workflow and the staging-first
-validation rule for shared deployment behavior.
+The deploy repository protects `main` with required pull requests, Deploy CI,
+and Release Branch Policy. It does not require approving reviews, but unresolved
+review conversations block merge. A merge still does not start a runtime
+deployment. Use the manual deployment workflow and the staging-first validation
+rule for shared deployment behavior.
 
 ## Migration And Seeder Policy
 
@@ -852,9 +862,9 @@ merge
 CD redeploys
 ```
 
-Frontend and backend protected branches must still be changed through the PR flow;
-the deploy repository remains the documented exception and accepts validated
-deployment changes directly on `deploy/main`.
+Frontend, backend, and deploy protected branches must be changed through their
+documented pull request flows. The deploy repository does not use a staging
+integration branch, but its changes still enter `main` from a Jira task branch.
 
 For production rollback, create a hotfix or rollback branch from `main`.
 

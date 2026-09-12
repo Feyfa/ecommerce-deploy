@@ -28,13 +28,16 @@ Application image definitions stay in the application repositories:
 ## Branch Model
 
 The application repositories use separate `main`, `staging`, and Jira task
-branches. This deployment repository uses only the long-lived `main` branch.
-It has no persistent `staging` or `*-staging` branch.
+branches. This deployment repository has one long-lived `main` branch and uses
+short-lived Jira task branches for reviewed changes. It has no persistent
+`staging` or `*-staging` branch.
 
-Deployment configuration changes are committed and pushed directly to
-`deploy/main`. Pushing `main` only synchronizes repository files; it does not
-automatically deploy or restart an environment. Use the matching manual GitHub
-Actions workflow when runtime changes are required.
+Create deployment changes from the latest `deploy/main` in a branch such as
+`task/jd-tok-38`, then push the branch and open a pull request to `main`.
+Deploy CI and Release Branch Policy must pass before merge. Merging to `main`
+only synchronizes repository files; it does not automatically deploy or restart
+an environment. Use the matching manual GitHub Actions workflow when runtime
+changes are required.
 
 ## Trusted Client IP Configuration
 

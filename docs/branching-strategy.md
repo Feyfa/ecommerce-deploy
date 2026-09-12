@@ -7,9 +7,11 @@ The frontend and backend are separate repositories, but both repositories use th
 same branch roles and release flow. The goal is to let staging contain unfinished
 integration work without accidentally shipping that work to production.
 
-The deploy repository is intentionally different: it uses only its long-lived
-`main` branch and does not create a persistent `staging` or `*-staging` branch.
-Its change and deployment procedure is defined in `release-flow.md`.
+The deploy repository is intentionally different: it has only one long-lived
+branch, `main`, and uses short-lived Jira task branches that merge into `main`
+through pull requests. It does not create a persistent `staging` or
+`*-staging` branch. Its change and deployment procedure is defined in
+`release-flow.md`.
 
 ## Branch Roles
 

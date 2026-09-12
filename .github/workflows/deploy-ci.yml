@@ -1,0 +1,39 @@
+name: Deploy CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate deploy repository
+    runs-on: ubuntu-latest
+
+    env:
+      MEILISEARCH_KEY: ci-meilisearch-master-key
+      VITE_CLERK_PUBLISHABLE_KEY: pk_test_ci_placeholder
+      VITE_GEOAPIFY_API_KEY: ci-geoapify-placeholder
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate deployment script syntax
+        run: sh -n scripts/deploy-staging.sh scripts/deploy-production.sh scripts/stop-staging.sh
+
+      - name: Prepare CI environment files
+        run: |
+          cp env/staging/backend.env.example env/staging/backend.env
+          cp env/staging/frontend.env.example env/staging/frontend.env
+          cp env/production/backend.env.example env/production/backend.env
+          cp env/production/frontend.env.example env/production/frontend.env
+
+      - name: Validate staging Compose configuration
+        run: docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml config --quiet
+
+      - name: Validate production Compose configuration
+        run: docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml config --quiet
