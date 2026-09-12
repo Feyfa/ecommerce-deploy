@@ -16,8 +16,10 @@ task staging branch model.
 - Create a new deploy task branch from the latest `main`, using the same
   `{work-type}/{initial}-{jira-key}` convention as the application repositories.
 - Do not implement deployment changes directly on `main`.
-- Push the deploy task branch, wait for Deploy CI and Release Branch Policy to
-  pass, and merge it into `main` through a pull request.
+- Push the deploy task branch and wait for its push-triggered Deploy CI to pass
+  before opening or continuing its pull request to `main`.
+- Wait for the pull request Deploy CI and Release Branch Policy checks to pass
+  before merging the task branch into `main`.
 - A merge to `main` synchronizes deployment configuration but does not deploy or
   restart the runtime automatically.
 - Run the matching manual `Sync Deploy`, `Deploy`, `Migrate`, or `Seed` workflow

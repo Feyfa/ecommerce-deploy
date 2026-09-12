@@ -373,11 +373,12 @@ git pull --ff-only origin main
 git switch -c task/jd-tok-38
 ```
 
-After editing and local validation, commit and push the task branch, then open a
-pull request to `main`. Deploy CI and Release Branch Policy must pass before the
-pull request is merged. Required reviewer approval remains zero so a maintainer
-can complete safe solo work, while unresolved review conversations still block
-the merge.
+After editing and local validation, commit and push the task branch, then wait
+for its push-triggered Deploy CI to pass before opening or continuing a pull
+request to `main`. Deploy CI runs again for the pull request, and both that check
+and Release Branch Policy must pass before the pull request is merged. Required
+reviewer approval remains zero so a maintainer can complete safe solo work,
+while unresolved review conversations still block the merge.
 
 The deploy branch policy accepts `feature/**`, `story/**`, `bug/**`, `task/**`,
 and `hotfix/**` source branches. It rejects `main`, `staging`, and any
@@ -472,6 +473,11 @@ Push CI provides the task-branch checkpoint, while pull request CI validates the
 same checks against the current protected target before merge. Release Branch
 Policy remains pull-request-only because it validates the PR source-to-target
 mapping.
+
+Deploy CI uses the same five push patterns for deploy Jira task branches and
+runs again when a pull request targets deploy `main`. Deploy has no task staging
+branch. Its Release Branch Policy remains pull-request-only because that check
+requires pull request source and target branch context.
 
 Staging deploy trigger:
 
@@ -948,3 +954,8 @@ The CI PostgreSQL service is temporary and only exists during the GitHub Actions
 
 Branch protection requires the frontend and backend CI jobs to pass before their
 pull requests can be merged.
+
+Deploy CI validates deployment shell syntax and both Docker Compose
+configurations for task branch pushes and pull requests to deploy `main`. These
+checks render configuration only and do not deploy, restart, migrate, or seed an
+environment.
