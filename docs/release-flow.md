@@ -110,9 +110,9 @@ bug/jd-tok-7
 ```
 
 Complete, validate, commit, and push the intended implementation in the main
-Jira task branch before preparing its staging integration branch. If the
-staging branch does not exist yet, update both long-lived source branches
-first:
+Jira task branch, then wait for task-branch CI to pass. Only after that remote
+checkpoint succeeds should staging preparation refresh the long-lived source
+branches.
 
 The local `staging` branch is the source of truth for task staging preparation.
 `origin/staging` is only a local remote-tracking reference and is not a
@@ -149,6 +149,10 @@ git checkout -B bug/jd-tok-7-staging origin/staging
 ```
 
 ```bash
+git push -u origin bug/jd-tok-7
+
+# Wait for task branch CI to pass.
+
 git switch main
 git pull --ff-only origin main
 
@@ -156,11 +160,12 @@ git switch staging
 git pull --ff-only origin staging
 
 git switch bug/jd-tok-7
+git rev-parse HEAD
 git merge --no-edit main
+git rev-parse HEAD
 
-git push -u origin bug/jd-tok-7
-
-# Wait for task branch CI here when configured.
+# If HEAD changed, validate, push, and wait for task branch CI again.
+# If HEAD did not change, do not push again.
 
 git branch --show-current
 
@@ -168,19 +173,26 @@ git switch -c bug/jd-tok-7-staging
 git merge --no-ff --no-edit staging
 
 git push -u origin bug/jd-tok-7-staging
+
+# Wait for task staging branch CI before merging its pull request.
 ```
 
-Resolve and validate production-source conflicts in the main Jira task branch.
-Push the main task branch after it passes local validation. If CI runs for task
-branch pushes, wait for it to pass before creating the task staging branch; if
-no such CI exists, continue immediately after the push. Resolve and validate
-staging conflicts in the staging integration branch, then push that branch.
+Record the main task branch commit before and after merging `main`. If the merge
+changes HEAD, resolve conflicts, validate, push the new commit, and wait for its
+CI result. If HEAD remains unchanged, the earlier successful CI result still
+applies and no second push is needed. Resolve and validate staging conflicts in
+the staging integration branch, push that branch, and wait for its CI before
+the staging pull request may be merged.
 
 If the staging integration branch already exists, do not recreate it. Refresh
 the long-lived branches, merge `main` into the main Jira task branch, then carry
 the task changes and the latest `staging` into the existing staging branch:
 
 ```bash
+git push -u origin bug/jd-tok-7
+
+# Wait for task branch CI to pass.
+
 git switch main
 git pull --ff-only origin main
 
@@ -188,23 +200,26 @@ git switch staging
 git pull --ff-only origin staging
 
 git switch bug/jd-tok-7
+git rev-parse HEAD
 git merge --no-edit main
+git rev-parse HEAD
 
-git push -u origin bug/jd-tok-7
-
-# Wait for task branch CI here when configured.
+# If HEAD changed, validate, push, and wait for task branch CI again.
+# If HEAD did not change, do not push again.
 
 git switch bug/jd-tok-7-staging
 git merge --no-edit bug/jd-tok-7
 git merge --no-ff --no-edit staging
 
 git push -u origin bug/jd-tok-7-staging
+
+# Wait for task staging branch CI before merging its pull request.
 ```
 
-Validate and push the refreshed main task branch before switching to the
-existing task staging branch. Apply the same optional task-push CI gate used
-for a new staging branch, then validate and push the refreshed task staging
-branch.
+Validate and push the refreshed main task branch only if merging `main` changed
+its HEAD, and wait for that new CI result before switching to the existing task
+staging branch. Validate and push the refreshed task staging branch, then wait
+for its CI before the staging pull request may be merged.
 
 This task-staging preparation flow applies to the frontend and backend
 repositories. The deploy repository uses Jira task branches without matching
@@ -301,11 +316,14 @@ Staging flow for frontend and backend:
 
 ```text
 complete code, tests, environment examples, and affected docs in the main Jira task branch
-  -> merge latest main into the main Jira task branch
-  -> resolve conflicts and validate the main Jira task branch
   -> commit and push the main Jira task branch
+  -> wait for main Jira task branch push CI
+  -> merge latest main into the main Jira task branch
+  -> if HEAD changed, validate, push, and wait for CI again
   -> merge the main Jira task branch into its task staging branch
   -> merge latest staging into the task staging branch
+  -> validate and push the Jira task staging branch
+  -> wait for Jira task staging branch push CI
   -> Jira task staging branch
   -> staging
   -> manual Deploy Staging workflow from the deploy repository
@@ -315,9 +333,10 @@ Production flow for frontend and backend:
 
 ```text
 complete code, tests, environment examples, and affected docs in the main Jira task branch
-  -> merge latest main into the main Jira task branch
-  -> resolve conflicts and validate the main Jira task branch
   -> commit and push the main Jira task branch
+  -> wait for main Jira task branch push CI
+  -> merge latest main into the main Jira task branch
+  -> if HEAD changed, validate, push, and wait for CI again
   -> main Jira task branch
   -> main
   -> manual Deploy Production workflow from the deploy repository
@@ -440,16 +459,19 @@ Merging to `main` means the code is production-ready. The actual production depl
 
 ## CI And CD Triggers
 
-Initial CI should run only on pull requests to protected branches:
+Application CI runs when a pull request targets a protected branch:
 
 ```text
 staging
 main
 ```
 
-At this initial stage, a normal push to `feature/**`, `story/**`, `bug/**`,
-`task/**`, or `hotfix/**` does not run CI. CI runs when a PR is created or
-updated, before the PM merges it.
+Application CI also runs when `feature/**`, `story/**`, `bug/**`, `task/**`, or
+`hotfix/**` is pushed. These patterns include matching `*-staging` branches.
+Push CI provides the task-branch checkpoint, while pull request CI validates the
+same checks against the current protected target before merge. Release Branch
+Policy remains pull-request-only because it validates the PR source-to-target
+mapping.
 
 Staging deploy trigger:
 
@@ -884,18 +906,20 @@ deploy again
 
 ## CI Test Level
 
-CI test level defines which automatic checks must run before a PR can be merged.
+CI test level defines which automatic checks run for task branch pushes and
+must also pass before a pull request can be merged.
 
 Initial frontend CI:
 
 ```bash
 npm ci
+npm run format:check
+npm run test:unit
 npm run build
 ```
 
 Frontend CI verifies that dependencies can be installed cleanly, the code can build, imports are not broken, and syntax or build errors are caught.
-
-Frontend unit tests and lint are not required at the initial stage if the project is not ready for them. They can be added later.
+It also enforces the configured source formatting and unit test suite.
 
 Initial backend CI:
 
@@ -913,13 +937,14 @@ Backend CI uses temporary PostgreSQL in GitHub Actions to stay close to staging 
 Backend CI commands:
 
 ```bash
-composer install --no-interaction --prefer-dist --optimize-autoloader
+composer install --no-interaction --prefer-dist --no-progress
 cp .env.example .env.testing
-php artisan key:generate --env=testing
+php artisan key:generate --env=testing --force
 php artisan migrate --env=testing --force
 php artisan test
 ```
 
 The CI PostgreSQL service is temporary and only exists during the GitHub Actions job. It is not the local, staging, or production database.
 
-Branch protection can later require `frontend-ci` and `backend-ci` to pass before PRs can be merged.
+Branch protection requires the frontend and backend CI jobs to pass before their
+pull requests can be merged.
