@@ -121,6 +121,11 @@ Use the staged diff as the primary commit scope when files are staged. Review `g
 
 When staging deployment changes, add only the explicitly reviewed files with exact paths. Use `git add -- <file>` for each intended file, or list several exact paths in one command. Never use `git add -A`, `git add .`, `git add --all`, or broad globs. After staging, inspect `git diff --cached --name-status`, `git diff --cached --stat`, and `git diff --cached` so the approval clearly shows which files will be committed and pushed to the deploy task branch.
 
+When one Git command contains multiple explicit file paths, format it across
+multiple lines with one path per line and shell line continuations. Keep it as
+one Git operation while making every staged path easy to review in the
+approval dialog.
+
 ### Commit Scope and Atomicity
 
 A branch does not define a single commit scope. If a branch or working tree contains changes for multiple tasks, tickets, environments, or independently reviewable purposes, inspect and stage each scope separately and generate one commit message from that scope's staged diff. Changes for one task must not absorb an unrelated rollout, infrastructure fix, configuration update, workflow change, or documentation task merely because they exist on the same branch.
