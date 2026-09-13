@@ -27,6 +27,32 @@ task staging branch model.
 - Validate shared deployment behavior on staging before applying the same
   change to production.
 
+## Working Branch End State And Release Completion
+
+- When a deploy Jira task branch participates in preparation or review work,
+  return to that task branch after temporarily inspecting or refreshing `main`.
+- During a coordinated application staging preparation, leave each frontend or
+  backend repository on its main Jira task branch, not its `*-staging` branch.
+- When an operation uses only long-lived branches and no Jira task branch,
+  leave the affected repository on `main`, not `staging`.
+- After an actual staging or production deployment and all required health
+  checks succeed, refresh local frontend and backend `staging` and `main`
+  branches, leave both repositories on `main`, refresh deploy `main`, and leave
+  the deploy repository on `main`. This post-deployment rule takes precedence
+  over the task-preparation end state.
+- Before reporting completion, verify the final branch in every affected
+  repository with `git branch --show-current`. Report any failed pull or branch
+  check instead of claiming synchronization succeeded.
+- If a matching Jira issue exists, record relevant release evidence and move it
+  to `Done` only after every deployment required by its scope has succeeded and
+  been validated. Keep it in its current status while any required CI, merge,
+  deployment, health check, or local synchronization remains incomplete or
+  failed.
+- After the `Done` transition, move the card to the top of the Done column when
+  a supported ranking operation is available. Treat ranking as best effort,
+  report an unavailable or failed ranking operation, and never guess or directly
+  overwrite an opaque Jira rank value.
+
 ## Project Documentation
 
 Repository documentation is available in the `docs/` directory.
@@ -199,7 +225,17 @@ Preserve other valid trailers and do not add a duplicate Codex trailer. Separate
 
 Before presenting or creating the commit message, verify that the repository and staged scope are correct, every major operational subsystem in scope is represented, each claim is supported by the diff or executed validation, English grammar is sound, no empty section remains, relevant limitations are disclosed, and footers and trailers are correctly ordered.
 
-For multi-line commit messages, use real newline characters. Do not place literal `\n` sequences inside `git commit -m` arguments. Prefer `git commit -F -` with a heredoc or another method that preserves the intended line breaks.
+Every commit must read its message from standard input using `git commit -F -`
+with a quoted `'EOF'` heredoc delimiter. This applies to subject-only commits,
+multi-line messages, and amendments that replace a commit message. Do not use
+`git commit -m`, multiple `-m` arguments, or literal `\n` sequences in place of
+real line breaks.
+
+```bash
+git commit -F - <<'EOF'
+docs(workflow): describe the verified change
+EOF
+```
 
 Hard-wrap commit-message prose at 72 characters per line. Keep the subject at
 72 characters or fewer. Do not wrap commands, URLs, paths, hashes, code

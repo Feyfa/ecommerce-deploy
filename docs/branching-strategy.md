@@ -195,6 +195,26 @@ staging
 
 All sync operations use merge, not rebase.
 
+## Working Branch End State
+
+End each branch operation on the branch that represents the intended source
+context for the next task:
+
+- when an application Jira task branch participates in staging preparation,
+  switch back to the main Jira task branch after the task staging branch has
+  been validated and pushed; do not leave the worktree on `*-staging`;
+- when a deploy Jira task branch participates in preparation or review work,
+  switch back to that deploy task branch after temporarily inspecting or
+  refreshing `main`;
+- when an operation involves only long-lived branches and no Jira task branch,
+  finish on `main`, not `staging`;
+- after an actual staging or production deployment, follow the post-deployment
+  synchronization in `release-flow.md`; that procedure overrides the
+  preparation end state and finishes every affected repository on `main`.
+
+Before reporting a branch operation complete, run `git branch --show-current`
+in every affected repository and verify the result against these rules.
+
 ## Staging Flow
 
 Use this flow when a Jira task needs to be tested in staging:
