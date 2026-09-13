@@ -415,6 +415,23 @@ git diff --cached
 
 The same explicit-file rule applies to frontend, backend, and deploy repositories. It keeps the approval review aligned with the files that will be committed or pushed.
 
+### Commit Message Execution
+
+Every commit must read its message from standard input with `git commit -F -`
+and a quoted `'EOF'` heredoc delimiter. This applies to subject-only commits,
+multi-line commit messages, and amendments that replace a commit message. Do
+not use `git commit -m` or multiple `-m` arguments.
+
+```bash
+git commit -F - <<'EOF'
+docs(workflow): describe the verified change
+EOF
+```
+
+Use real newlines inside the heredoc. After every commit, run
+`git log -1 --format=full` as a separate command and verify the stored message,
+including its line breaks, validation claims, and trailers.
+
 ## Pull Request Flow
 
 A pull request is the controlled request to merge one branch into another branch in GitHub.
@@ -521,6 +538,57 @@ The manual deploy sync workflows connect to the correct VM, pull only the `deplo
 The manual migration workflows connect to the correct VM and run `php artisan migrate --force` against the already-running backend container from the latest deploy.
 
 The manual seeder workflows connect to the correct VM, require a `seeder_class` input, validate that the requested seeder class exists in `backend/database/seeders`, and then run `php artisan db:seed --class=... --force`.
+
+## Post-Deployment Local Sync And Jira Completion
+
+After every required staging or production deployment workflow and its health
+checks succeed, refresh the local long-lived branches before reporting the
+release complete. First confirm that each working tree is safe to switch.
+
+In each affected frontend and backend repository, run every command as a
+separate terminal invocation:
+
+```bash
+git switch staging
+git pull --ff-only origin staging
+git switch main
+git pull --ff-only origin main
+git branch --show-current
+```
+
+The final branch must be `main`. Refresh both application branches after either
+a staging or production deployment so the next task starts from current local
+references.
+
+The deploy repository has no `staging` branch. Refresh it separately:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git branch --show-current
+```
+
+The final deploy branch must also be `main`. If a required pull or branch check
+fails, report the failure and do not claim that post-deployment synchronization
+completed.
+
+When a Jira issue exists and matches the released work, move it to `Done` only
+after every deployment required by the task scope and its validation have
+succeeded. A production-bound task remains open after staging and completes
+after production; a task whose declared final scope is staging may complete
+after the verified staging deployment.
+
+Before the transition, record concise evidence that identifies the relevant
+pull requests, workflow runs, health or runtime checks, migration or seeder
+outcomes when applicable, and any material limitation. Keep the issue in its
+current status when any required CI, merge, deployment, health check, or local
+synchronization remains incomplete or failed.
+
+After transitioning the issue to `Done`, place it at the top of the Done column
+when the available Jira integration exposes a supported ranking operation.
+Ranking is best effort and is not a completion gate. If ranking is unavailable
+or fails, keep the verified `Done` status and report the limitation; do not guess
+or directly overwrite an opaque Jira rank value.
 
 ## Branch Protection Rules
 
