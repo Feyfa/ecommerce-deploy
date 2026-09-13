@@ -213,23 +213,35 @@ git log -1 --format=full
 
 Verify that the commit is in the correct repository, the summary and body are accurate, sections and bullet points have the intended line breaks, no literal `\n` text was stored, and validation claims match checks that were actually run. If the message is malformed and the commit has not been pushed, correct it when doing so is safe.
 
-## GitHub Pull Requests
+## GitHub Tool Selection
+
+Before performing any GitHub operation, identify the repository and whether the
+requested operation concerns a pull request or GitHub Actions. Tool selection is
+mandatory and must follow the rules below; do not choose a different tool merely
+because it is available.
+
+### GitHub Pull Requests
 
 When the user asks to inspect, create, open, update, review, merge, or otherwise
-operate a pull request, use the GitHub CLI (`gh`). Prefer the dedicated `gh pr`
-commands and use `gh api` only when the required operation is not available
-through a standard `gh` subcommand. Do not use connected GitHub integrations,
-the Chrome extension, browser plugins, or browser automation for pull request
-operations unless the user explicitly requests browser-based interaction.
+operate a pull request, use the connected GitHub integration first so the action
+is displayed through the structured Codex action UI. Do not use `gh`, Chrome,
+browser automation, or the GitHub web UI while the connected integration can
+perform the requested deployment pull request operation.
 
-Before performing a pull request operation, verify that `gh` is authenticated
-with the correct GitHub account and has sufficient repository permissions.
-Confirm the repository, pull request number, source branch, and target branch
-before any operation that changes remote state. After a create, update, ready,
-close, reopen, or merge operation, verify the resulting pull request state with
-`gh pr view`.
+If the connected GitHub integration is unavailable or fails, explain that
+limitation before using the GitHub CLI as a fallback. Prefer the dedicated
+`gh pr` commands and use `gh api` only when the required operation is not
+available through a standard `gh` subcommand. Use browser-based interaction only
+when the user explicitly requests it.
 
-## GitHub Actions
+Before any pull request operation that changes remote state, verify that the
+selected tool is authenticated with the correct GitHub account and has
+sufficient repository permissions. Confirm the repository, pull request number
+when applicable, source branch, and target branch. After the operation, verify
+the resulting pull request state through the connected integration or the
+explained fallback tool.
+
+### GitHub Actions
 
 When the user asks to inspect, run, dispatch, monitor, rerun, or otherwise
 operate a GitHub Actions workflow in this deployment repository, use the
