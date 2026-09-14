@@ -128,6 +128,21 @@ Do not add these markers to purely declarative YAML that has no embedded procedu
 
 Add contextual comments when they explain operational intent, security boundaries, ordering dependencies, environment differences, failure recovery, compatibility requirements, or deployment risks. Avoid comments that merely repeat commands or configuration keys.
 
+## Command And Approval Readability
+
+- Keep simple commands on one line when they remain easy to read and review.
+- Format PHP, SQL, shell, or other complex commands across multiple lines with
+  clear indentation so the approval dialog remains easy to understand before
+  the command is approved.
+- Split complex operations into smaller commands with one clear purpose per
+  execution when that separation is safe and preserves the required atomicity.
+- Avoid placing complex scripts, especially `php -r` or long SQL statements,
+  on one dense line that is difficult to review.
+- When a temporary script is the safer approach, show or explain its contents
+  first, then use a short and specific command to execute it.
+- State explicitly in each approval question whether the command only reads
+  data or changes state.
+
 ## Git and Commit Workflow
 
 Execute one Git command per terminal invocation. Do not chain Git commands with
