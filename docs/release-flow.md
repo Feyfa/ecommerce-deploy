@@ -529,9 +529,13 @@ Manual deployment workflows live in the deploy repository:
 .github/workflows/seed-production.yml
 ```
 
-The staging workflow pulls frontend and backend from `origin/staging`, pulls deploy from `origin/main`, runs `./scripts/deploy-staging.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
-
-The production workflow pulls frontend and backend from `origin/main`, pulls deploy from `origin/main`, runs `./scripts/deploy-production.sh`, prints Docker Compose status, and checks `http://localhost:8080` and `http://localhost:8081` on the VM.
+The staging workflow checks out frontend and backend `staging` on the
+GitHub-hosted runner, reads the staging VM's frontend build configuration over
+SSH, publishes private GHCR images, and pulls their exact digests on the VM.
+The production workflow does the same with application `main` and the
+production VM's configuration. Both workflows sync deploy `main` on the target
+VM, print Docker Compose status, and check the frontend and backend HTTP ports.
+The VM no longer builds application images or pulls application source branches.
 
 The manual deploy sync workflows connect to the correct VM, pull only the `deploy` repository from `origin/main`, and print the latest synced commit without rebuilding containers or applying runtime changes.
 
@@ -935,6 +939,14 @@ Do not use a personal SSH private key if possible. Prefer a dedicated CI/CD key.
 ## Rollback Policy
 
 The primary rollback method is `git revert`, not `git reset` or force push.
+
+For an unhealthy image activation, the deploy script immediately tries the
+last successful GHCR digests recorded in `env/<environment>/images.env`.
+The previous successful set is also retained as `images.previous.env` after a
+successful replacement. The first image-based deploy has no saved digest
+rollback; keep the previous deploy revision and local images until cutover is
+verified. Image rollback does not undo a database migration. A permanent
+source-code rollback still follows the protected-branch `git revert` flow below.
 
 `git revert` creates a new commit that cancels a problematic commit while keeping history intact.
 

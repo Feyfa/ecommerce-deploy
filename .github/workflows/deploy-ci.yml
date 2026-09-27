@@ -30,17 +30,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate deployment script syntax
-        run: sh -n scripts/deploy-staging.sh scripts/deploy-production.sh scripts/stop-staging.sh
+        run: sh -n scripts/deploy-staging.sh scripts/deploy-production.sh scripts/deploy-image-release.sh scripts/stop-staging.sh
+
+      - name: Validate frontend env parser syntax
+        run: python3 -m py_compile scripts/export-frontend-build-env.py
+
+      - name: Verify image activation and rollback
+        run: sh tests/deploy-image-release.sh
 
       - name: Prepare CI environment files
         run: |
           cp env/staging/backend.env.example env/staging/backend.env
           cp env/staging/frontend.env.example env/staging/frontend.env
+          cp env/staging/images.env.example env/staging/images.env
           cp env/production/backend.env.example env/production/backend.env
           cp env/production/frontend.env.example env/production/frontend.env
+          cp env/production/images.env.example env/production/images.env
 
       - name: Validate staging Compose configuration
-        run: docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml config --quiet
+        run: docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml config --quiet
 
       - name: Validate production Compose configuration
-        run: docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml config --quiet
+        run: docker compose --env-file env/production/backend.env --env-file env/production/frontend.env --env-file env/production/images.env -f compose/compose.production.yml config --quiet

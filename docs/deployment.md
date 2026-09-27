@@ -2,9 +2,11 @@
 
 This repository owns the deployment stack for the ecommerce frontend and backend.
 
-The frontend and backend repositories build their own application images. This
-repository runs those images together with PostgreSQL, Redis, Meilisearch, the
-buyer-search queue worker, Laravel Scheduler, and the Nginx reverse proxy.
+The manual Deploy workflows in this repository build frontend, backend PHP,
+and backend Nginx images from the application repositories on GitHub-hosted
+runners. They publish private images to GHCR, then the target VM pulls the
+images and runs them with PostgreSQL, Redis, Meilisearch, the buyer-search
+queue worker, Laravel Scheduler, and the Nginx reverse proxy.
 
 Redis is an internal Laravel queue service. Meilisearch is an internal,
 rebuildable buyer catalog projection protected by a required master key. The
@@ -28,19 +30,24 @@ Ecommerce/
   deploy/
 ```
 
-The Compose files in this repository build from the sibling `frontend` and `backend` folders.
+The Compose files use immutable image digests recorded in each VM's ignored
+`deploy/env/<environment>/images.env`. Application source checkouts are not
+needed to start the stack.
 
 ## Local Stack Validation
 
-Local development stays native without Docker. Docker is used locally only to validate the deployment stack.
+Local development stays native without Docker. Validate Compose syntax locally
+with the example env files; a real stack requires access to the private GHCR
+images and a populated `images.env` from a successful deployment.
 
 From the `deploy` folder:
 
 ```bash
-cp env/staging/backend.env.example env/staging/backend.env
-cp env/staging/frontend.env.example env/staging/frontend.env
-./scripts/deploy-staging.sh
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml ps
+MEILISEARCH_KEY=ci-key docker compose \
+  --env-file env/staging/backend.env.example \
+  --env-file env/staging/frontend.env.example \
+  --env-file env/staging/images.env.example \
+  -f compose/compose.staging.yml config --quiet
 ```
 
 Local validation URLs:
@@ -53,10 +60,10 @@ Backend:  http://localhost:8081
 Run migrations and any required specific seeders after the containers are up:
 
 ```bash
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan migrate --force
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan outbox:status
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan buyer-search:reindex
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan migrate --force
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan outbox:status
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan buyer-search:reindex
 ```
 
 `buyer-search:reindex` clears the derived buyer index and dispatches
@@ -70,13 +77,13 @@ than a PostgreSQL product limit, and monitor buyer-search latency before any
 future increase.
 
 ```bash
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml ps backend-worker backend-scheduler redis meilisearch
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan outbox:status
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan queue:monitor redis:buyer-catalog-search --max=1
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan queue:failed
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan tinker --execute="dump(app(\\Meilisearch\\Client::class)->index(config('buyer_product_search.index'))->stats());"
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml logs --tail=100 backend-worker
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml logs --tail=100 backend-scheduler
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml ps backend-worker backend-scheduler redis meilisearch
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan outbox:status
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan queue:monitor redis:buyer-catalog-search --max=1
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan queue:failed
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan tinker --execute="dump(app(\\Meilisearch\\Client::class)->index(config('buyer_product_search.index'))->stats());"
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml logs --tail=100 backend-worker
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml logs --tail=100 backend-scheduler
 ```
 
 The outbox must have no overdue pending or terminal failed messages, the queue
@@ -118,7 +125,7 @@ Use `down -v` only when the local Docker PostgreSQL data can be deleted.
 
 ## Environment Files
 
-Real env files are ignored by git. Copy the examples before deploying:
+Real env files are ignored by git. Copy the runtime examples before deploying:
 
 ```bash
 cp env/staging/backend.env.example env/staging/backend.env
@@ -127,9 +134,32 @@ cp env/staging/frontend.env.example env/staging/frontend.env
 
 Production uses the same pattern under `env/production`.
 
+`images.env` is created by the first successful Deploy workflow. It records
+the exact GHCR digests and source commits currently active on the VM.
+`images.previous.env` records the preceding successful image set. Both files
+are ignored by Git; the matching `.example` files exist for Compose validation.
+Do not copy an image example into the real VM as an active release.
+
+The three GHCR packages are private. The deploy workflow publishes them with
+its `GITHUB_TOKEN` and passes the same short-lived token to `docker login` on
+the VM through SSH stdin. The VM uses a temporary Docker credential directory
+for the pull and removes it afterward; no long-lived GHCR token is needed in
+`backend.env` or `frontend.env`. Check that the packages are linked to the
+deploy repository before the first rollout if those package names already
+exist under the GitHub account.
+
+Before the first image rollout, check free space with `df -h /` and
+`docker system df` on the target VM. Retain the previous deploy revision and
+local application images until the new stack has passed its health checks.
+Review unused build cache separately if image pulls need more space; the
+deployment script does not prune Docker data automatically.
+
 `backend.env` is the clean server environment for Laravel and PostgreSQL. It must contain only variables that are intentionally used by staging or production.
 
-`frontend.env` is the clean server environment for the frontend build and public HTTP port settings.
+`frontend.env` remains on the target VM and supplies eight public `VITE_*`
+values to its GitHub Actions build, plus the VM's public HTTP port settings.
+The workflow reads only these build keys through SSH. Changing a `VITE_*`
+value requires another manual Deploy run, even when the code commit is unchanged.
 
 Set a real `APP_KEY` in each `backend.env` before starting staging or production. Do not leave it empty outside the committed `.example` files.
 
@@ -195,11 +225,11 @@ Use keys from the matching Clerk production instance for each environment.
 Never place `CLERK_SECRET_KEY` in `frontend.env`, expose it through a `VITE_`
 variable, or commit a real Clerk key to Git.
 
-Docker Compose passes the public Clerk values to the frontend build because
-Vite compiles them into static assets. The Compose configuration fails early
-when `VITE_CLERK_PUBLISHABLE_KEY` is missing, preventing a deployment with an
-unusable authentication bundle. `CLERK_SECRET_KEY` is loaded only into the
-backend PHP container through `backend.env`.
+The Deploy workflow validates all eight `VITE_*` build values before building
+the frontend image because Vite compiles them into static assets. Docker
+Compose does not rebuild or configure the frontend bundle on the VM.
+`CLERK_SECRET_KEY` is loaded only into the backend PHP container through
+`backend.env`.
 
 Geoapify uses separate browser and server-side keys:
 
@@ -259,41 +289,45 @@ If the Proxmox home server is behind CGNAT, use Cloudflare Tunnel or another ext
 
 ## Script Usage
 
-The deployment scripts are shared between local stack validation and real VM deployment.
+The manual Deploy workflows invoke the deployment scripts on their target VMs
+after publishing image digests. The scripts require three immutable image
+references and the matching frontend/backend source commits as arguments.
+They receive a short-lived GHCR token on stdin for private image pulls.
 
 ```text
 VM staging:
-  ./scripts/deploy-staging.sh
+  ./scripts/deploy-staging.sh FRONTEND_IMAGE BACKEND_IMAGE BACKEND_NGINX_IMAGE FRONTEND_SHA BACKEND_SHA
 
 VM production:
-  ./scripts/deploy-production.sh
-
-Local stack validation:
-  ./scripts/deploy-staging.sh
-  ./scripts/stop-staging.sh
+  ./scripts/deploy-production.sh FRONTEND_IMAGE BACKEND_IMAGE BACKEND_NGINX_IMAGE FRONTEND_SHA BACKEND_SHA
 ```
 
-`deploy-staging.sh` starts or updates the staging stack. It can be used locally to validate the Docker stack and on the staging VM to deploy the real staging environment.
-
-`deploy-production.sh` starts or updates the production stack. There is no production stop script by default because stopping production should be a deliberate manual operation.
-
-Both deploy scripts force recreate `backend-nginx` and `reverse-proxy` after `docker compose up -d --build`. This refreshes both Nginx upstream layers after rebuilt frontend or backend containers are recreated and prevents stale upstream references from causing `502 Bad Gateway` responses after deploys.
+The scripts pull the selected GHCR images, start the stack without building on
+the VM, force recreate `backend-nginx` and `reverse-proxy` to refresh upstream
+DNS, check both published HTTP ports, and require every Compose service to be
+running. They promote `images.env` only after the checks pass. If a candidate
+fails and a previous successful manifest
+exists, they reactivate its image digests. The first image deployment has no
+previous manifest; retain the previous deploy revision and local images until
+that first deployment has passed. Database migrations are separate and are not
+reverted by an image rollback.
 
 The API server in both public reverse-proxy templates sets
 `client_max_body_size 20m`, matching the backend Nginx layer. Keep both layers
 aligned whenever application upload limits change; otherwise the outer proxy
 can return `413 Request Entity Too Large` before Laravel receives the request.
 
-If a `502 Bad Gateway` response appears after a manual rebuild, force recreate the Nginx layer that owns the stale upstream reference:
+If a `502 Bad Gateway` response appears after a deploy, force recreate the Nginx layer that owns the stale upstream reference:
 
 ```sh
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml up -d --force-recreate backend-nginx reverse-proxy
-docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml up -d --force-recreate backend-nginx reverse-proxy
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml up -d --force-recreate backend-nginx reverse-proxy
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env --env-file env/production/images.env -f compose/compose.production.yml up -d --force-recreate backend-nginx reverse-proxy
 ```
 
 Use `backend-nginx` for API or PHP-FPM upstream issues and `reverse-proxy` for public frontend or public API routing issues.
 
-`stop-staging.sh` stops the staging stack and is mainly intended for local stack validation or an intentional staging stop.
+`stop-staging.sh` stops the staging stack intentionally and requires an active
+`env/staging/images.env`.
 
 ## VM Manual Deployment Runbook
 
@@ -306,7 +340,9 @@ The staging and production VMs use the same server-side folder structure:
   deploy/
 ```
 
-The Compose files in `/opt/ecommerce/deploy` build from the sibling `/opt/ecommerce/frontend` and `/opt/ecommerce/backend` repositories. Pushing to GitHub does not update a VM by itself; pull the changed repositories on the VM before running the deploy script.
+The application repositories may remain checked out for historical reference,
+but deployment does not pull or build them on the VM. Run the appropriate
+manual Deploy workflow to build and publish their selected branch commits.
 
 ## GitHub Actions Manual Deployment
 
@@ -323,13 +359,19 @@ Seed Staging
 Seed Production
 ```
 
-These workflows replace the manual SSH runbook with a GitHub "Run workflow" button. They connect the GitHub-hosted runner to the private tailnet with Tailscale, SSH into the target VM, pull the correct application branches, pull the deploy repository, run the deployment script, print Docker Compose status, and run local health checks for frontend and backend.
+The existing Deploy Staging and Deploy Production buttons check out the target
+application branches on a GitHub-hosted runner. Through Tailscale and SSH they
+read that VM's `frontend.env`, build and publish the three private GHCR images,
+sync the deploy repository on the VM, and run the image-pulling deploy script.
+The script prints Compose status and checks frontend and backend HTTP responses.
 
 `Sync Deploy Staging` and `Sync Deploy Production` only pull `/opt/ecommerce/deploy` from `origin/main`, set the local branch upstream if needed, and print the latest synced commit. They do not pull frontend or backend, run Docker Compose, restart services, migrate, or seed.
 
 `Migrate Staging` and `Migrate Production` do not pull code again. They run `php artisan migrate --force` against the backend container created by the latest successful deploy in the matching environment.
 
-`Seed Staging` and `Seed Production` do not pull code again. They require a `seeder_class` input, validate that the requested class exists in `backend/database/seeders`, and run `php artisan db:seed --class=... --force` against the backend container created by the latest successful deploy.
+`Seed Staging` and `Seed Production` do not pull code again. They require a
+`seeder_class` input, validate it against the running backend image, and run
+`php artisan db:seed --class=... --force` in that container.
 
 Operational branch targets:
 
@@ -377,7 +419,7 @@ Manual workflow steps:
 3. Click Run workflow.
 4. Fill the `seeder_class` input when running a seed workflow.
 5. Wait until the workflow status is Success.
-6. Confirm the Docker Compose status step completed for deploy workflows.
+6. Confirm all three image digests were published and Compose status was printed.
 7. Confirm both local VM health checks completed for deploy workflows.
 8. Open the staging or production frontend and backend URLs from a browser when the release includes code changes.
 ```
@@ -389,7 +431,7 @@ Sync Deploy ...:
   update only the deploy repository on the target VM
 
 Deploy ...:
-  update frontend, backend, and deploy repositories and apply runtime changes
+  build application branches in Actions, pull images on the VM, and apply runtime changes
 
 Migrate ...:
   run Laravel migrations on the existing deployed backend container
@@ -417,12 +459,12 @@ Use the workflows with the following daily operating rules.
 `Deploy Staging`
 
 - Use this when frontend, backend, or deploy changes must be applied to the staging runtime.
-- This workflow updates frontend, backend, and deploy repositories on the staging VM and then applies the deployment.
+- This workflow builds from application `staging` branches and updates only the deploy checkout on the staging VM.
 
 `Deploy Production`
 
 - Use this when frontend, backend, or deploy changes must be applied to the production runtime.
-- This workflow updates frontend, backend, and deploy repositories on the production VM and then applies the deployment.
+- This workflow builds from application `main` branches and updates only the deploy checkout on the production VM.
 
 `Migrate Staging`
 
@@ -506,83 +548,67 @@ The production environment should require manual approval before the job can run
 
 ### Deploy Staging
 
+Run **Deploy Staging** from the deploy repository's GitHub Actions page. After
+it succeeds, inspect the selected image digests on the staging VM:
+
 ```bash
 ssh ecommerce-staging
-
-cd /opt/ecommerce/frontend
-git fetch origin
-git checkout staging
-git pull --ff-only origin staging
-
-cd /opt/ecommerce/backend
-git fetch origin
-git checkout staging
-git pull --ff-only origin staging
-
 cd /opt/ecommerce/deploy
-git pull --ff-only origin main
-
-./scripts/deploy-staging.sh
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml ps
+cat env/staging/images.env
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml ps
 ```
 
 Run staging migrations when backend migrations changed:
 
 ```bash
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan migrate --force
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan migrate --force
 ```
 
 Run staging seeders only when the seed data is intentionally needed:
 
 ```bash
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
 ```
 
 ### Deploy Production
 
+After staging validation and production release approval, run **Deploy
+Production** from the deploy repository's GitHub Actions page. Inspect the
+production image digests after it succeeds:
+
 ```bash
 ssh ecommerce-production
-
-cd /opt/ecommerce/frontend
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-
-cd /opt/ecommerce/backend
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-
 cd /opt/ecommerce/deploy
-git pull --ff-only origin main
-
-./scripts/deploy-production.sh
-docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml ps
+cat env/production/images.env
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env --env-file env/production/images.env -f compose/compose.production.yml ps
 ```
 
 Run production migrations when backend migrations changed:
 
 ```bash
-docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml exec backend-php php artisan migrate --force
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env --env-file env/production/images.env -f compose/compose.production.yml exec backend-php php artisan migrate --force
 ```
 
 Do not run production seeders on every deploy. Seed production only during initial setup or when the specific seeder is known to be idempotent and safe:
 
 ```bash
-docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env --env-file env/production/images.env -f compose/compose.production.yml exec backend-php php artisan db:seed --class=PaymentListSeeder --force
 ```
 
 ### Deployment Scope
 
-If only the frontend changed, pull `/opt/ecommerce/frontend` and then run the relevant deploy script from `/opt/ecommerce/deploy`.
-
-If only the backend changed, pull `/opt/ecommerce/backend` and then run the relevant deploy script from `/opt/ecommerce/deploy`.
-
-If deployment configuration, scripts, Nginx config, or env examples changed, pull `/opt/ecommerce/deploy` before running the relevant deploy script.
+Each manual Deploy run builds the current frontend and backend branch commits
+for its environment, even if only one application changed. The VM pulls only
+the resulting image digests; it no longer pulls application source code.
+`Sync Deploy ...` still updates only deploy configuration without changing the
+running containers.
 
 ## VM SSH Deploy Keys
 
-Staging and production use separate GitHub deploy keys. Production follows one read-only deploy key per repository:
+Staging and production use separate GitHub Actions SSH keys for VM access. The
+VM's deploy-repository read-only key remains necessary to sync `deploy/main`;
+application repository deploy keys are no longer used by the Deploy workflows.
+An existing production VM may still have the historical keys shown below.
 
 ```text
 ~/.ssh/ecommerce_production_frontend_deploy
@@ -612,21 +638,24 @@ Host github-production-deploy
   IdentitiesOnly yes
 ```
 
-Each public key should be registered as a read-only deploy key on its matching GitHub repository. Do not enable write access for VM deploy keys unless the VM must push commits.
+Only the deploy-repository public key needs read access for this image-based
+workflow. Historical application keys can be retired after the first staging
+and production image deployments are verified. Do not enable write access for
+VM deploy keys unless the VM must push commits.
 
 ## Staging Commands
 
 ```bash
-./scripts/deploy-staging.sh
-docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env -f compose/compose.staging.yml logs -f
+cat env/staging/images.env
+docker compose --env-file env/staging/backend.env --env-file env/staging/frontend.env --env-file env/staging/images.env -f compose/compose.staging.yml logs -f
 ./scripts/stop-staging.sh
 ```
 
 ## Production Commands
 
 ```bash
-./scripts/deploy-production.sh
-docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml logs -f
+cat env/production/images.env
+docker compose --env-file env/production/backend.env --env-file env/production/frontend.env --env-file env/production/images.env -f compose/compose.production.yml logs -f
 ```
 
 Production requires real values for `APP_KEY`, `DB_PASSWORD`, and `POSTGRES_PASSWORD`. `DB_*` and `POSTGRES_*` database values must point to the same database.

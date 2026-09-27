@@ -16,38 +16,19 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ../../frontend
-      dockerfile: docker/nginx/Dockerfile
-      args:
-        VITE_APP_BACKEND_BASE_URL: ${VITE_APP_BACKEND_BASE_URL:-http://localhost:8081}
-        VITE_SYMLINK_FOLDER: ${VITE_SYMLINK_FOLDER:-storage}
-        VITE_GEOAPIFY_API_KEY: ${VITE_GEOAPIFY_API_KEY:?VITE_GEOAPIFY_API_KEY is required}
-        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:?VITE_CLERK_PUBLISHABLE_KEY is required}
-        VITE_CLERK_SIGN_IN_URL: ${VITE_CLERK_SIGN_IN_URL:-/login}
-        VITE_CLERK_SIGN_UP_URL: ${VITE_CLERK_SIGN_UP_URL:-/register}
-        VITE_FEATURE_CLERK_PASSKEY: ${VITE_FEATURE_CLERK_PASSKEY:-false}
-        VITE_FEATURE_CLERK_TOTP: ${VITE_FEATURE_CLERK_TOTP:-false}
-    image: ecommerce-frontend:staging
-    env_file:
-      - ../env/staging/frontend.env
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
     restart: unless-stopped
 
   backend-nginx:
-    image: nginx:1.28-alpine
+    image: ${BACKEND_NGINX_IMAGE:?BACKEND_NGINX_IMAGE is required}
     depends_on:
       - backend-php
     volumes:
-      - ../../backend/public:/var/www/html/public:ro
       - backend_public_storage:/var/www/html/public/storage:ro
-      - ../../backend/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
 
   backend-php:
-    build:
-      context: ../../backend
-      dockerfile: docker/php/Dockerfile
-    image: ecommerce-backend:staging
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     env_file:
       - ../env/staging/backend.env
     environment:
@@ -61,7 +42,7 @@ services:
     restart: unless-stopped
 
   backend-worker:
-    image: ecommerce-backend:staging
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     env_file:
       - ../env/staging/backend.env
     command: ["php", "artisan", "queue:work", "redis", "--queue=buyer-catalog-search", "--sleep=1", "--tries=3", "--backoff=5", "--timeout=60", "--max-time=3600"]
@@ -79,7 +60,7 @@ services:
     restart: unless-stopped
 
   backend-scheduler:
-    image: ecommerce-backend:staging
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     env_file:
       - ../env/staging/backend.env
     command: ["php", "artisan", "schedule:work"]
