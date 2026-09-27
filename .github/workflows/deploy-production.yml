@@ -3,18 +3,55 @@ name: Deploy Production
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy production stack
+    name: Build images and deploy production stack
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
+      - name: Verify deploy branch
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "Run Deploy Production from deploy/main" >&2
+            exit 1
+          fi
+
+      - name: Checkout deploy repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout production frontend
+        uses: actions/checkout@v4
+        with:
+          repository: Feyfa/ecommerce-frontend
+          ref: main
+          path: frontend
+          persist-credentials: false
+
+      - name: Checkout production backend
+        uses: actions/checkout@v4
+        with:
+          repository: Feyfa/ecommerce-backend
+          ref: main
+          path: backend
+          persist-credentials: false
+
+      - name: Record application source commits
+        run: |
+          echo "FRONTEND_SHA=$(git -C frontend rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "BACKEND_SHA=$(git -C backend rev-parse HEAD)" >> "$GITHUB_ENV"
+
       - name: Connect GitHub runner to Tailscale
         uses: tailscale/github-action@v4
         with:
@@ -32,45 +69,124 @@ jobs:
           chmod 600 ~/.ssh/ecommerce_production_deploy
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Deploy production over SSH
+      - name: Read production frontend build configuration
         env:
           SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
           SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
         run: |
           set -eu
-          ssh -i ~/.ssh/ecommerce_production_deploy -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" <<'EOF'
+          trap 'rm -f "$RUNNER_TEMP/frontend.env"' EXIT
+          # --- step 1 - start - copy VM configuration to the ephemeral runner
+          scp -i ~/.ssh/ecommerce_production_deploy -o IdentitiesOnly=yes \
+            "$SSH_USER@$SSH_HOST:/opt/ecommerce/deploy/env/production/frontend.env" \
+            "$RUNNER_TEMP/frontend.env"
+          chmod 600 "$RUNNER_TEMP/frontend.env"
+          # --- step 1 - end - copy VM configuration to the ephemeral runner
+
+          # --- step 2 - start - export only validated Vite build values
+          python3 scripts/export-frontend-build-env.py "$RUNNER_TEMP/frontend.env" "$GITHUB_ENV"
+          # --- step 2 - end - export only validated Vite build values
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR on the runner
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish production frontend
+        id: frontend_image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/docker/nginx/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/feyfa/ecommerce-frontend:production-${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Feyfa/ecommerce-deploy
+            org.opencontainers.image.url=https://github.com/Feyfa/ecommerce-frontend
+            org.opencontainers.image.revision=${{ env.FRONTEND_SHA }}
+          build-args: |
+            VITE_APP_BACKEND_BASE_URL=${{ env.VITE_APP_BACKEND_BASE_URL }}
+            VITE_SYMLINK_FOLDER=${{ env.VITE_SYMLINK_FOLDER }}
+            VITE_GEOAPIFY_API_KEY=${{ env.VITE_GEOAPIFY_API_KEY }}
+            VITE_CLERK_PUBLISHABLE_KEY=${{ env.VITE_CLERK_PUBLISHABLE_KEY }}
+            VITE_CLERK_SIGN_IN_URL=${{ env.VITE_CLERK_SIGN_IN_URL }}
+            VITE_CLERK_SIGN_UP_URL=${{ env.VITE_CLERK_SIGN_UP_URL }}
+            VITE_FEATURE_CLERK_PASSKEY=${{ env.VITE_FEATURE_CLERK_PASSKEY }}
+            VITE_FEATURE_CLERK_TOTP=${{ env.VITE_FEATURE_CLERK_TOTP }}
+
+      - name: Build and publish production backend PHP
+        id: backend_image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/docker/php/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/feyfa/ecommerce-backend-php:production-${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Feyfa/ecommerce-deploy
+            org.opencontainers.image.url=https://github.com/Feyfa/ecommerce-backend
+            org.opencontainers.image.revision=${{ env.BACKEND_SHA }}
+
+      - name: Build and publish production backend Nginx
+        id: backend_nginx_image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/docker/nginx/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/feyfa/ecommerce-backend-nginx:production-${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Feyfa/ecommerce-deploy
+            org.opencontainers.image.url=https://github.com/Feyfa/ecommerce-backend
+            org.opencontainers.image.revision=${{ env.BACKEND_SHA }}
+
+      - name: Sync deploy configuration on production VM
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
           set -eu
-
-          cd /opt/ecommerce/frontend
-          git fetch origin
-          git checkout main
-          git pull --ff-only origin main
-          git branch --set-upstream-to=origin/main main
-
-          cd /opt/ecommerce/backend
-          git fetch origin
-          git checkout main
-          git pull --ff-only origin main
-          git branch --set-upstream-to=origin/main main
-
+          ssh -i ~/.ssh/ecommerce_production_deploy -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" \
+            "DEPLOY_SHA='$DEPLOY_SHA' sh -s" <<'EOF'
+          set -eu
           cd /opt/ecommerce/deploy
+          # --- step 1 - start - sync the deploy repository without application checkouts
+          git checkout main
           git pull --ff-only origin main
-          ./scripts/deploy-production.sh
+          # --- step 1 - end - sync the deploy repository without application checkouts
 
-          docker compose --env-file env/production/backend.env --env-file env/production/frontend.env -f compose/compose.production.yml ps
-
-          for url in http://localhost:8080 http://localhost:8081; do
-            for attempt in 1 2 3 4 5; do
-              if curl --fail --silent --show-error --max-time 10 "$url" > /dev/null; then
-                break
-              fi
-
-              if [ "$attempt" -eq 5 ]; then
-                echo "Health check failed for $url"
-                exit 1
-              fi
-
-              sleep 3
-            done
-          done
+          # --- step 2 - start - reject a newer deploy revision than this workflow
+          if [ "$(git rev-parse HEAD)" != "$DEPLOY_SHA" ]; then
+            echo "Deploy main changed after this workflow started; rerun the workflow" >&2
+            exit 1
+          fi
+          # --- step 2 - end - reject a newer deploy revision than this workflow
           EOF
+
+      - name: Pull images and deploy production
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FRONTEND_IMAGE: ghcr.io/feyfa/ecommerce-frontend@${{ steps.frontend_image.outputs.digest }}
+          BACKEND_IMAGE: ghcr.io/feyfa/ecommerce-backend-php@${{ steps.backend_image.outputs.digest }}
+          BACKEND_NGINX_IMAGE: ghcr.io/feyfa/ecommerce-backend-nginx@${{ steps.backend_nginx_image.outputs.digest }}
+        run: |
+          set -eu
+          printf '%s\n' "$FRONTEND_IMAGE" | grep -Eq '^ghcr\.io/feyfa/ecommerce-frontend@sha256:[0-9a-f]{64}$'
+          printf '%s\n' "$BACKEND_IMAGE" | grep -Eq '^ghcr\.io/feyfa/ecommerce-backend-php@sha256:[0-9a-f]{64}$'
+          printf '%s\n' "$BACKEND_NGINX_IMAGE" | grep -Eq '^ghcr\.io/feyfa/ecommerce-backend-nginx@sha256:[0-9a-f]{64}$'
+          printf '%s\n' "$GHCR_USER" | grep -Eq '^[A-Za-z0-9-]+$'
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/ecommerce_production_deploy -o IdentitiesOnly=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "cd /opt/ecommerce/deploy && GHCR_USER='$GHCR_USER' ./scripts/deploy-production.sh '$FRONTEND_IMAGE' '$BACKEND_IMAGE' '$BACKEND_NGINX_IMAGE' '$FRONTEND_SHA' '$BACKEND_SHA'"

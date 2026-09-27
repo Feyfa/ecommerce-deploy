@@ -310,8 +310,10 @@ Staging and production need their own environment files:
 ```text
 deploy/env/staging/backend.env
 deploy/env/staging/frontend.env
+deploy/env/staging/images.env
 deploy/env/production/backend.env
 deploy/env/production/frontend.env
+deploy/env/production/images.env
 ```
 
 Only examples should be committed:
@@ -319,11 +321,15 @@ Only examples should be committed:
 ```text
 deploy/env/staging/backend.env.example
 deploy/env/staging/frontend.env.example
+deploy/env/staging/images.env.example
 deploy/env/production/backend.env.example
 deploy/env/production/frontend.env.example
+deploy/env/production/images.env.example
 ```
 
-Real environment files must contain secrets and must stay outside git.
+Real runtime environment files may contain secrets and must stay outside git.
+`images.env` contains only image digests and source commits, but is also kept
+outside git because it describes the release active on one specific VM.
 
 Set a real `APP_KEY` in each `backend.env` before starting the stack. Do not leave `APP_KEY` empty on staging or production.
 
@@ -379,7 +385,8 @@ BACKEND_HTTP_PORT
 
 Passkey and TOTP capability flags are intentionally disabled in the committed
 staging and production examples. The frontend values are Docker build
-arguments, so changing them requires rebuilding the frontend image. The backend
+arguments in the GitHub-hosted Deploy workflow, so changing them requires
+another manual Deploy run that publishes a new frontend image. The backend
 values are runtime configuration and keep the Security summary aligned with the
 frontend capability state.
 

@@ -46,6 +46,7 @@ jobs:
           docker compose \
             --env-file env/production/backend.env \
             --env-file env/production/frontend.env \
+            --env-file env/production/images.env \
             -f compose/compose.production.yml \
             exec backend-php php artisan migrate --force
           EOF
