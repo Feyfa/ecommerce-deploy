@@ -250,6 +250,27 @@ merge latest main into the main Jira task branch
 
 Production must use the main Jira task branch, not its `*-staging` branch.
 
+### Released Task Content Consistency
+
+The production candidate must contain the same task changes already deployed
+to staging, across all Git-tracked files, including Markdown and instructions.
+Any additional change must first be integrated and deployed to staging; a
+documentation-only change is not exempt. Application integration continues to
+use the matching task staging branch; deploy retains its main-only flow.
+
+Staging may also contain tasks that have not reached production. Compare the
+released task's content and relevant hunks, not whole-branch equality or merge
+SHAs. Attribute remaining differences to pending tasks and preserve their work.
+When tasks overlap in one file, verify that integration has not changed or
+removed the released task's contribution. An unexplained difference blocks
+promotion and completion. Never reset staging or promote pending tasks merely
+to obtain an empty diff.
+
+Before completion, compare both deployed source revisions against the reviewed
+task changes. Local branch synchronization alone does not verify server content.
+If no pending tasks explain a difference, the released task content must match.
+Record comparisons and active revisions in Jira/PR/Actions, not application QA.
+
 If a PR from a main Jira task branch to `main` still conflicts after normal
 sync with `main`, merge the PR target branch `main` into the main task branch,
 resolve the conflict there, commit, and push the task branch again.
@@ -292,15 +313,18 @@ This keeps hotfixes based on the current production source of truth.
 
 After production is fixed, bring the hotfix back to staging:
 
+Production-first deployment requires explicit emergency authorization. Keep the
+hotfix open until its full tracked changes are also deployed and verified in
+staging. This sequencing does not waive final task content consistency.
+
 ```text
 hotfix/jd-tok-10
   -> hotfix/jd-tok-10-staging
   -> staging
 ```
 
-When the hotfix can merge cleanly into `staging` without bringing staging-only
-history into the production hotfix branch, the staging integration branch is
-not required.
+Use the matching hotfix staging branch for that integration even when the merge
+is clean. Do not bring staging-only history into the production hotfix branch.
 
 ## Conflict Rules
 

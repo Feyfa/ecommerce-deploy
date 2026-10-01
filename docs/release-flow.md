@@ -357,6 +357,35 @@ unrelated documentation change merely for the release process.
 
 `main` is the branch that the production deployment workflow pulls from.
 
+## Task Content And QA Evidence Boundary
+
+Every production-bound task must have the same reviewed task changes deployed
+to staging and production, including all tracked code, tests, Markdown,
+instructions, and configuration. After staging verification, any additional
+tracked change must go through staging integration and deployment before
+production. There is no documentation-only exception.
+
+Staging may contain other tasks awaiting production. Compare content within the
+released task's scope and attribute remaining differences to those pending
+tasks, including overlapping changes in the same file. Preserve pending work;
+never reset staging, merge staging into main, or ship unrelated unfinished work
+to force whole-branch equality. Merge SHAs may differ while task content agrees.
+An unexplained missing or changed task contribution blocks release completion.
+
+Application `backend/docs/qa/` and `frontend/docs/qa/` contain local QA only.
+Complete scenarios, expected results, actual local tests/review, and local
+coverage limitations with the implementation before commit. Do not put
+post-commit CI, PR, staging/production smoke, deployment, runtime health, source
+revisions, or Jira status checklists/results into these tracked documents.
+Keep that evidence in Jira, PRs, and GitHub Actions. These release checks still
+run; do not create a new documentation commit merely to update their status.
+Do not rewrite unrelated historical QA documents as part of a release.
+
+Verify both the branch content and the source revisions activated on the VMs.
+Deploy final image-packaged content to both environments, including Markdown.
+The deploy repository remains main-only; verify the same released deploy
+revision on both VMs. Record proof and pending-task exceptions outside Git QA.
+
 ## Deploy Repository Flow
 
 The deploy repository has only one long-lived branch, `main`. Use short-lived
@@ -433,6 +462,18 @@ Use real newlines inside the heredoc. After every commit, run
 including its line breaks, validation claims, and trailers.
 
 ## Pull Request Flow
+
+### Pull Request Titles
+
+Use the actual Jira key at the start of every task PR title:
+
+- Application to staging: `[TOK-X-staging] <description>`.
+- Application to main: `[TOK-X] <description>`.
+- Deploy task to main: `[TOK-X] <description>`.
+
+Use the same concise description for paired application PRs. Do not add `PR-`,
+change branch conventions, or change commit-message rules. Push-triggered
+Actions may still display commit subjects rather than a PR title.
 
 A pull request is the controlled request to merge one branch into another branch in GitHub.
 
@@ -578,7 +619,8 @@ completed.
 
 When a Jira issue exists and matches the released work, move it to `Done` only
 after every deployment required by the task scope and its validation have
-succeeded. A production-bound task remains open after staging and completes
+succeeded and released task content consistency is verified on both servers.
+A production-bound task remains open after staging and completes
 after production; a task whose declared final scope is staging may complete
 after the verified staging deployment.
 
