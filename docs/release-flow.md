@@ -516,6 +516,65 @@ Production deploy should use manual control or approval because it can affect re
 
 Merging to `main` means the code is production-ready. The actual production deploy can still wait for the correct approval and release window.
 
+## Efficient CI And Deployment Monitoring
+
+Use the GitHub CLI for Actions and the connected GitHub integration for PRs,
+following the repository tool-selection rules. Monitoring does not authorize
+merge, retry, dispatch, production promotion, or a permission bypass.
+
+Record the repository, run ID, workflow/event, source SHA, and attempt when
+discovering a run. For a queued or running run, start one watcher and keep its
+execution session instead of repeatedly asking the model to sleep and inspect
+the same status. The CLI performs the polling; the model handles decisions and
+final verification. This reduces redundant interaction, not required evidence,
+and does not guarantee a particular usage saving.
+
+Replace the placeholders below with the actual repository, run ID, and Jira
+key. Keep the temporary log outside the repository and unique to the task/run:
+
+```bash
+gh run watch RUN_ID \
+    --repo OWNER/REPO \
+    --exit-status \
+    --compact \
+    --interval 30 \
+    > /private/tmp/tok-X-watch-RUN_ID.log 2>&1
+```
+
+Resume that command session with waits of at most 60 seconds so user updates
+remain timely. Do not restart the watcher at each tool yield, run a competing
+status loop, or feed every refresh into model context. Read a small relevant
+tail only when needed; provide concise updates from known state without
+inventing progress. Routine waiting does not require a subagent.
+
+An interrupted watcher, timeout, unsupported CLI/authentication method, unclear
+result, failure indication, or user status request can justify an additional
+status read. Explain the reason, check the run once, and resume one watcher
+when possible. If watching is unavailable, use bounded compact CLI polling;
+do not silently change tools or restart the deployment. A monitor error or
+timeout is not proof that the remote workflow failed or was cancelled.
+
+After the watcher ends, confirm terminal status, conclusion, source SHA, and
+attempt with a compact read before continuing:
+
+```bash
+gh run view RUN_ID --repo OWNER/REPO \
+    --json status,conclusion,headSha,attempt
+```
+
+On failure, begin with `gh run view RUN_ID --repo OWNER/REPO --log-failed` and
+inspect the relevant error and rollback/health evidence. On success, read only
+the log sections needed for active source revisions, immutable images, and
+service/HTTP health. Download large logs to temporary files when appropriate;
+do not dump full build logs into the conversation by default.
+
+Reuse evidence only for unchanged content and the same verification context.
+Required push CI and PR CI remain separate gates; a changed commit or target,
+new attempt, stale evidence, or concrete regression risk can require new checks.
+Keep task-content parity, actual deployed revisions, runtime health, local
+synchronization and final branch checks, Jira evidence, and production approval
+intact. Record post-commit results in Jira/PR/Actions, not local QA Markdown.
+
 ## CI And CD Triggers
 
 Application CI runs when a pull request targets a protected branch:
