@@ -208,9 +208,24 @@ context for the next task:
   refreshing `main`;
 - when an operation involves only long-lived branches and no Jira task branch,
   finish on `main`, not `staging`;
-- after an actual staging or production deployment, follow the post-deployment
-  synchronization in `release-flow.md`; that procedure overrides the
-  preparation end state and finishes every affected repository on `main`.
+- after every successful staging or production deployment and its required
+  health checks, refresh local application `staging` and `main` and deploy
+  `main` with `--ff-only`, following `release-flow.md`;
+- after staging, while the task still needs QA, fixes, or production promotion,
+  return participating application repositories to their main Jira task branch,
+  not `*-staging`. If deploy has a branch for that active task, return to it too;
+- after production deployment and all required validation succeed, or the task
+  has completed its declared scope, finish affected repositories on `main`.
+  Merging a production PR alone does not establish production completion;
+- repositories without a branch for the task finish on `main`; do not create
+  a task branch merely for checkout. Preserve local changes and task branches;
+  never force a switch, reset a branch, or delete work to reach an end state.
+
+Synchronization does not determine the final local checkout. An active task
+stays on its main task branch after staging so QA findings can be fixed there.
+These local end states do not change deployment sources: application staging
+uses `staging`, production uses `main`, and deploy workflows and VMs use deploy
+`main`.
 
 Before reporting a branch operation complete, run `git branch --show-current`
 in every affected repository and verify the result against these rules.

@@ -587,8 +587,10 @@ The manual seeder workflows connect to the correct VM, require a `seeder_class` 
 ## Post-Deployment Local Sync And Jira Completion
 
 After every required staging or production deployment workflow and its health
-checks succeed, refresh the local long-lived branches before reporting the
-release complete. First confirm that each working tree is safe to switch.
+checks succeed, refresh the local long-lived branches before reporting that
+deployment stage complete. First confirm that each working tree is safe to
+switch. Preserve local changes and task branches; never force a switch, reset
+a branch, or delete work to reach an end state.
 
 In each affected frontend and backend repository, run every command as a
 separate terminal invocation:
@@ -598,24 +600,55 @@ git switch staging
 git pull --ff-only origin staging
 git switch main
 git pull --ff-only origin main
-git branch --show-current
 ```
 
-The final branch must be `main`. Refresh both application branches after either
-a staging or production deployment so the next task starts from current local
-references.
+Refresh both application branches after either staging or production; choose
+the final local checkout separately based on the task's stage:
+
+| Task stage | Final local application branch |
+| --- | --- |
+| Staging succeeded; task still needs QA, fixes, or production promotion | The participating repository's main Jira task branch, not `*-staging` |
+| Production deployment and all required validation succeeded | `main` |
+| Task completed its declared scope, including a declared staging-only scope | `main` |
+| Repository has no branch for the task | `main`; do not create a task branch merely for checkout |
+
+For an active task after staging, switch back to its main task branch after
+the pulls. For example, if that branch is `task/jd-tok-17`, run:
+
+```bash
+git switch task/jd-tok-17
+```
+
+Use the actual task branch, not the example name. Keep QA fixes on that branch
+and integrate them through its matching `*-staging` branch as usual. Merging a
+production PR into `main` does not establish production completion.
 
 The deploy repository has no `staging` branch. Refresh it separately:
 
 ```bash
 git switch main
 git pull --ff-only origin main
-git branch --show-current
 ```
 
-The final deploy branch must also be `main`. If a required pull or branch check
-fails, report the failure and do not claim that post-deployment synchronization
-completed.
+If deploy has a branch for the still-active task after staging, return to that
+deploy task branch too. Otherwise, or after production validation or declared
+task completion, leave deploy on `main`. Deploy still has no `staging` or
+`*-staging` branch.
+
+These rules govern local working copies. Deployment sources remain application
+`staging` for staging, application `main` for production, and deploy `main` for
+workflows and VMs; the local checkout does not select the deployed revision.
+
+After the final checkout, verify every affected repository separately:
+
+```bash
+git branch --show-current
+git status --short --branch
+```
+
+If a required pull or branch check fails, report the failure and do not claim
+that post-deployment synchronization completed. A production-bound task remains
+active after staging, with its local task branch ready for continued QA.
 
 When a Jira issue exists and matches the released work, move it to `Done` only
 after every deployment required by the task scope and its validation have
