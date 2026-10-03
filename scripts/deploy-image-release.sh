@@ -6,6 +6,9 @@ set -eu
 # digest, frontend source SHA, and backend source SHA. When GHCR_USER is set,
 # stdin must contain a short-lived GHCR token. The last healthy image manifest
 # remains active until the candidate passes both HTTP checks.
+# Requires Python 3 and flock on the VM. Retention protects active/previous
+# manifests, candidates and all containers; only historical project digests can
+# be removed. Hold the checkout-local lock throughout deployment and retention.
 
 # --- step 1 - start - validate immutable image and source references
 if [ "$#" -ne 6 ]; then
@@ -31,6 +34,23 @@ printf '%s\n' "$backend_nginx_image" | grep -Eq '^ghcr\.io/feyfa/ecommerce-backe
 printf '%s\n' "$frontend_sha" | grep -Eq '^[0-9a-f]{40}$'
 printf '%s\n' "$backend_sha" | grep -Eq '^[0-9a-f]{40}$'
 # --- step 1 - end - validate immutable image and source references
+
+# --- step 2 - start - lock the deployment and ensure safe pull capacity
+# Serialize manual and workflow deployments on this VM, not only Actions runs.
+# The ignored tmp directory is inside the trusted deploy checkout. Append-open
+# avoids truncation; never remove the lock file while another process may use it.
+mkdir -p tmp
+exec 9>>tmp/image-release.lock
+if ! flock -n 9; then
+  echo "Another image deployment holds the VM lock; no deployment started" >&2
+  exit 1
+fi
+
+# Check capacity before even allocating a candidate manifest or pulling images.
+# A preflight failure leaves the active stack and its manifests unchanged.
+python3 scripts/manage-image-retention.py "$environment" ensure-space \
+  --lock-fd 9 --candidate "$frontend_image" "$backend_image" "$backend_nginx_image"
+# --- step 2 - end - lock the deployment and ensure safe pull capacity
 
 manifest_dir="env/$environment"
 current_manifest="$manifest_dir/images.env"
@@ -118,7 +138,7 @@ restore_active() {
   return 1
 }
 
-# --- step 2 - start - prepare the candidate and temporary registry credentials
+# --- step 3 - start - prepare the candidate and temporary registry credentials
 chmod 600 "$candidate_manifest"
 printf 'FRONTEND_IMAGE=%s\nBACKEND_IMAGE=%s\nBACKEND_NGINX_IMAGE=%s\nFRONTEND_SOURCE_SHA=%s\nBACKEND_SOURCE_SHA=%s\n' \
   "$frontend_image" "$backend_image" "$backend_nginx_image" "$frontend_sha" "$backend_sha" \
@@ -130,9 +150,9 @@ if [ -n "${GHCR_USER:-}" ]; then
   export DOCKER_CONFIG="$docker_config"
   docker login ghcr.io --username "$GHCR_USER" --password-stdin
 fi
-# --- step 2 - end - prepare the candidate and temporary registry credentials
+# --- step 3 - end - prepare the candidate and temporary registry credentials
 
-# --- step 3 - start - pull and activate the candidate without building on the VM
+# --- step 4 - start - pull and activate the candidate without building on the VM
 if compose "$candidate_manifest" pull frontend backend-php backend-nginx \
   && compose "$candidate_manifest" up -d --no-build \
   && compose "$candidate_manifest" up -d --no-build --force-recreate backend-nginx reverse-proxy \
@@ -150,9 +170,16 @@ if compose "$candidate_manifest" pull frontend backend-php backend-nginx \
     exit 1
   fi
   echo "Activated $environment images from frontend $frontend_sha and backend $backend_sha"
+
+  # Retention failure cannot undo a healthy release or remove its rollback set.
+  # Surface an Actions warning so release verification does not miss the debt.
+  if ! python3 scripts/manage-image-retention.py "$environment" cleanup \
+    --lock-fd 9 --candidate "$frontend_image" "$backend_image" "$backend_nginx_image"; then
+    echo "::warning::Release is healthy, but image retention failed; inspect the VM before closing the release"
+  fi
 else
   echo "Candidate $environment deployment failed" >&2
   restore_active || true
   exit 1
 fi
-# --- step 3 - end - pull and activate the candidate without building on the VM
+# --- step 4 - end - pull and activate the candidate without building on the VM

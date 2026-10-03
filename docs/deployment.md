@@ -151,8 +151,66 @@ exist under the GitHub account.
 Before the first image rollout, check free space with `df -h /` and
 `docker system df` on the target VM. Retain the previous deploy revision and
 local application images until the new stack has passed its health checks.
-Review unused build cache separately if image pulls need more space; the
-deployment script does not prune Docker data automatically.
+
+### Deployment capacity and image retention
+
+Both Deploy workflows use the same VM-side image deployment script. Python 3,
+Linux `flock`, and a local Docker daemon are required. Run deployment commands
+from the canonical `/opt/ecommerce/deploy` checkout; its ignored
+`tmp/image-release.lock` remains locked throughout preflight, pull, activation,
+rollback and retention. Do not delete the lock file to bypass a running deploy.
+
+Before creating the candidate manifest or pulling images, the script requires
+at least **3 GiB available space and 10,000 free inodes** on each distinct
+filesystem containing Docker storage, containerd storage when used, and the
+manifest directory. These documented constants are conservative headroom for
+the current images, not an exact image-download estimate or a guarantee for
+larger future releases. A custom containerd root or unavailable inspection
+requires operator review instead of checking an assumed filesystem.
+
+If space is insufficient, the helper removes eligible historical application
+digests oldest first, measuring real available space after each image removal.
+It stops deleting once capacity passes. If capacity still fails, deployment
+stops before pull or activation; the active stack and manifests stay unchanged.
+Other disk consumers or protected images can still require capacity expansion.
+
+After successful health checks and manifest activation, retention removes all
+remaining eligible historical application images. It protects:
+
+- The complete active and previous image manifests in either environment found
+  on this VM, plus the three candidate references.
+- Every running or stopped container's image, using full image IDs as well as
+  saved digest references so aliases cannot bypass protection.
+- Foreign repositories, anonymous images, and ordinary mutable tags. Docker
+  29's duplicate immutable digest references in `RepoTags` are allowed.
+
+Only the three `ghcr.io/feyfa/ecommerce-*` application repositories explicitly
+allowlisted by the helper are eligible. Every image is rechecked immediately
+before `docker image rm` of its exact digest, without `--force`. No containers,
+volumes, databases, build cache, logs, or GHCR packages are deleted. Existing
+manifests must be complete and valid; missing saved images or failed inspection
+stop retention. The first image release without an active manifest disables
+automatic deletion to preserve pre-cutover recovery options.
+
+For a read-only preview on the target VM:
+
+```bash
+cd /opt/ecommerce/deploy
+python3 scripts/manage-image-retention.py staging dry-run
+# Use production instead of staging on the production VM.
+```
+
+Dry-run reports protected references, eligible images and available capacity;
+it does not delete images and does not guarantee how much space deletion would
+reclaim because layers are shared. Do not run it concurrently with deployment
+if using its output for a release decision. Mutating helper modes require the
+deployment's inherited lock descriptor and are invoked by the shared script.
+
+A preflight error is fatal. A retention error **after a healthy activation**
+emits an Actions warning without rolling back or marking the healthy application
+as failed. Inspect that warning and resolve or explicitly review the remaining
+retention work before closing the release. Never infer that retention passed
+solely from a successful workflow conclusion.
 
 `backend.env` is the clean server environment for Laravel and PostgreSQL. It must contain only variables that are intentionally used by staging or production.
 

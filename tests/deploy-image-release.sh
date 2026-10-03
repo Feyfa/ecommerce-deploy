@@ -10,7 +10,42 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_root=$(mktemp -d)
 trap 'rm -rf -- "$test_root"' EXIT HUP INT TERM
 mkdir -p "$test_root/bin" "$test_root/env/staging"
+mkdir -p "$test_root/scripts"
 touch "$test_root/env/staging/backend.env" "$test_root/env/staging/frontend.env"
+
+# Substitute only the retention boundary; helper safety is tested separately.
+cat > "$test_root/scripts/manage-image-retention.py" <<'EOF'
+import os
+import fcntl
+from pathlib import Path
+import sys
+
+mode = sys.argv[2]
+assert os.fstat(9).st_ino == Path("tmp/image-release.lock").stat().st_ino
+fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+with Path(os.environ["DOCKER_LOG"]).open("a") as log:
+    log.write(f"retention {mode}\n")
+if mode == "ensure-space" and os.environ.get("FAIL_SPACE") == "1":
+    raise SystemExit(1)
+if mode == "cleanup" and os.environ.get("FAIL_RETENTION") == "1":
+    raise SystemExit(1)
+EOF
+
+# Use the same flock semantics on macOS, where the Linux CLI is unavailable.
+cat > "$test_root/bin/flock" <<'EOF'
+#!/usr/bin/env python3
+import fcntl
+import os
+import sys
+
+if os.environ.get("FAIL_LOCK") == "1":
+    raise SystemExit(1)
+try:
+    fcntl.flock(int(sys.argv[-1]), fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise SystemExit(1)
+EOF
+chmod +x "$test_root/bin/flock"
 
 cat > "$test_root/bin/docker" <<'EOF'
 #!/usr/bin/env sh
@@ -63,6 +98,8 @@ EOF
 test -f "$test_root/env/staging/images.env"
 grep -q "^FRONTEND_IMAGE=$frontend_image$" "$test_root/env/staging/images.env"
 grep -q '^login ghcr.io --username feyfa --password-stdin$' "$DOCKER_LOG"
+test "$(head -n 1 "$DOCKER_LOG")" = 'retention ensure-space'
+test "$(tail -n 1 "$DOCKER_LOG")" = 'retention cleanup'
 cp "$test_root/env/staging/images.env" "$test_root/healthy.env"
 # --- step 2 - end - verify a healthy first release activates its manifest
 
@@ -86,3 +123,43 @@ if grep -q -- '--build' "$DOCKER_LOG"; then
 fi
 echo 'Image release activation and rollback checks passed'
 # --- step 3 - end - verify a failed candidate reactivates the healthy set
+
+# --- step 4 - start - reject low capacity and concurrent deployment before pull
+for failure in FAIL_SPACE FAIL_LOCK; do
+  : > "$DOCKER_LOG"
+  if (
+    cd "$test_root"
+    env PATH="$test_root/bin:$PATH" "$failure=1" \
+      sh "$repo_root/scripts/deploy-image-release.sh" staging \
+        "$frontend_image" "$backend_image" "$backend_nginx_image" \
+        "$source_sha" "$source_sha"
+  ); then
+    echo 'A failed preflight unexpectedly started deployment' >&2
+    exit 1
+  fi
+  cmp "$test_root/healthy.env" "$test_root/env/staging/images.env"
+  if grep -q '^compose ' "$DOCKER_LOG"; then
+    echo 'Preflight failure must not pull or activate images' >&2
+    exit 1
+  fi
+done
+# --- step 4 - end - reject low capacity and concurrent deployment before pull
+
+# --- step 5 - start - preserve a healthy release when final retention fails
+: > "$DOCKER_LOG"
+(
+  cd "$test_root"
+  PATH="$test_root/bin:$PATH" FAIL_RETENTION=1 \
+    sh "$repo_root/scripts/deploy-image-release.sh" staging \
+      "$frontend_image" "$backend_image" "$backend_nginx_image" \
+      "$source_sha" "$source_sha"
+) > "$test_root/retention-warning.log"
+grep -q '::warning::Release is healthy' "$test_root/retention-warning.log"
+cmp "$test_root/healthy.env" "$test_root/env/staging/images.env"
+cmp "$test_root/healthy.env" "$test_root/env/staging/images.previous.env"
+if grep -q 'images.env.* up -d' "$DOCKER_LOG"; then
+  echo 'Retention failure must not rollback a healthy release' >&2
+  exit 1
+fi
+echo 'Capacity, locking and post-release retention checks passed'
+# --- step 5 - end - preserve a healthy release when final retention fails

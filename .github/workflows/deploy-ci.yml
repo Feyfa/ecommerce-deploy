@@ -35,6 +35,9 @@ jobs:
       - name: Validate frontend env parser syntax
         run: python3 -m py_compile scripts/export-frontend-build-env.py
 
+      - name: Verify image retention safety
+        run: python3 -B -m unittest discover -s tests -p 'test_image_retention.py'
+
       - name: Verify image activation and rollback
         run: sh tests/deploy-image-release.sh
 
