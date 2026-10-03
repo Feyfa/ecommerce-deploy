@@ -1072,6 +1072,20 @@ Do not use a personal SSH private key if possible. Prefer a dedicated CI/CD key.
 
 ## Rollback Policy
 
+The shared image deployment script checks capacity before pulling candidates
+and performs scoped image retention after a healthy activation. If capacity is
+low, it first removes only safe historical project digests and measures again;
+it refuses to deploy if the 3 GiB / 10,000 free-inode floor is still unmet.
+Active and previous manifests, candidates, and every container image remain
+protected. See `deployment.md` for the full policy and read-only dry-run.
+
+The VM checkout lock covers the entire deployment and retention operation.
+Do not bypass it with a second manual deployment or direct cleanup. A failed
+candidate keeps the existing recovery flow. A post-activation retention warning
+does not roll back healthy services, but it must be inspected before release
+completion or Jira Done. Record capacity, removed/protected digest evidence and
+any warning disposition in Jira/PR/Actions, not application local QA documents.
+
 The primary rollback method is `git revert`, not `git reset` or force push.
 
 For an unhealthy image activation, the deploy script immediately tries the
