@@ -5,7 +5,7 @@ set -eu
 # Temporary Compose and curl stand-ins record which immutable manifest the
 # deployment script used. No real registry or application container is touched.
 
-# --- step 1 - start - prepare an isolated fake Docker environment
+# --- step 1 - prepare an isolated fake Docker environment - start ---
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_root=$(mktemp -d)
 trap 'rm -rf -- "$test_root"' EXIT HUP INT TERM
@@ -83,9 +83,9 @@ frontend_image="ghcr.io/feyfa/ecommerce-frontend@sha256:$digest"
 backend_image="ghcr.io/feyfa/ecommerce-backend-php@sha256:$digest"
 backend_nginx_image="ghcr.io/feyfa/ecommerce-backend-nginx@sha256:$digest"
 export DOCKER_LOG="$test_root/docker.log"
-# --- step 1 - end - prepare an isolated fake Docker environment
+# --- step 1 - prepare an isolated fake Docker environment - end ---
 
-# --- step 2 - start - verify a healthy first release activates its manifest
+# --- step 2 - verify a healthy first release activates its manifest - start ---
 (
   cd "$test_root"
   PATH="$test_root/bin:$PATH" GHCR_USER=feyfa \
@@ -101,9 +101,9 @@ grep -q '^login ghcr.io --username feyfa --password-stdin$' "$DOCKER_LOG"
 test "$(head -n 1 "$DOCKER_LOG")" = 'retention ensure-space'
 test "$(tail -n 1 "$DOCKER_LOG")" = 'retention cleanup'
 cp "$test_root/env/staging/images.env" "$test_root/healthy.env"
-# --- step 2 - end - verify a healthy first release activates its manifest
+# --- step 2 - verify a healthy first release activates its manifest - end ---
 
-# --- step 3 - start - verify a failed candidate reactivates the healthy set
+# --- step 3 - verify a failed candidate reactivates the healthy set - start ---
 if (
   cd "$test_root"
   PATH="$test_root/bin:$PATH" FAIL_CANDIDATE=1 \
@@ -122,9 +122,9 @@ if grep -q -- '--build' "$DOCKER_LOG"; then
   exit 1
 fi
 echo 'Image release activation and rollback checks passed'
-# --- step 3 - end - verify a failed candidate reactivates the healthy set
+# --- step 3 - verify a failed candidate reactivates the healthy set - end ---
 
-# --- step 4 - start - reject low capacity and concurrent deployment before pull
+# --- step 4 - reject low capacity and concurrent deployment before pull - start ---
 for failure in FAIL_SPACE FAIL_LOCK; do
   : > "$DOCKER_LOG"
   if (
@@ -143,9 +143,9 @@ for failure in FAIL_SPACE FAIL_LOCK; do
     exit 1
   fi
 done
-# --- step 4 - end - reject low capacity and concurrent deployment before pull
+# --- step 4 - reject low capacity and concurrent deployment before pull - end ---
 
-# --- step 5 - start - preserve a healthy release when final retention fails
+# --- step 5 - preserve a healthy release when final retention fails - start ---
 : > "$DOCKER_LOG"
 (
   cd "$test_root"
@@ -162,4 +162,4 @@ if grep -q 'images.env.* up -d' "$DOCKER_LOG"; then
   exit 1
 fi
 echo 'Capacity, locking and post-release retention checks passed'
-# --- step 5 - end - preserve a healthy release when final retention fails
+# --- step 5 - preserve a healthy release when final retention fails - end ---

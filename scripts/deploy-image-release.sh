@@ -10,7 +10,7 @@ set -eu
 # manifests, candidates and all containers; only historical project digests can
 # be removed. Hold the checkout-local lock throughout deployment and retention.
 
-# --- step 1 - start - validate immutable image and source references
+# --- step 1 - validate immutable image and source references - start ---
 if [ "$#" -ne 6 ]; then
   echo "Usage: $0 staging|production FRONTEND_IMAGE BACKEND_IMAGE BACKEND_NGINX_IMAGE FRONTEND_SHA BACKEND_SHA" >&2
   exit 2
@@ -33,9 +33,9 @@ printf '%s\n' "$backend_image" | grep -Eq '^ghcr\.io/feyfa/ecommerce-backend-php
 printf '%s\n' "$backend_nginx_image" | grep -Eq '^ghcr\.io/feyfa/ecommerce-backend-nginx@sha256:[0-9a-f]{64}$'
 printf '%s\n' "$frontend_sha" | grep -Eq '^[0-9a-f]{40}$'
 printf '%s\n' "$backend_sha" | grep -Eq '^[0-9a-f]{40}$'
-# --- step 1 - end - validate immutable image and source references
+# --- step 1 - validate immutable image and source references - end ---
 
-# --- step 2 - start - lock the deployment and ensure safe pull capacity
+# --- step 2 - lock the deployment and ensure safe pull capacity - start ---
 # Serialize manual and workflow deployments on this VM, not only Actions runs.
 # The ignored tmp directory is inside the trusted deploy checkout. Append-open
 # avoids truncation; never remove the lock file while another process may use it.
@@ -50,7 +50,7 @@ fi
 # A preflight failure leaves the active stack and its manifests unchanged.
 python3 scripts/manage-image-retention.py "$environment" ensure-space \
   --lock-fd 9 --candidate "$frontend_image" "$backend_image" "$backend_nginx_image"
-# --- step 2 - end - lock the deployment and ensure safe pull capacity
+# --- step 2 - lock the deployment and ensure safe pull capacity - end ---
 
 manifest_dir="env/$environment"
 current_manifest="$manifest_dir/images.env"
@@ -138,7 +138,7 @@ restore_active() {
   return 1
 }
 
-# --- step 3 - start - prepare the candidate and temporary registry credentials
+# --- step 3 - prepare the candidate and temporary registry credentials - start ---
 chmod 600 "$candidate_manifest"
 printf 'FRONTEND_IMAGE=%s\nBACKEND_IMAGE=%s\nBACKEND_NGINX_IMAGE=%s\nFRONTEND_SOURCE_SHA=%s\nBACKEND_SOURCE_SHA=%s\n' \
   "$frontend_image" "$backend_image" "$backend_nginx_image" "$frontend_sha" "$backend_sha" \
@@ -150,9 +150,9 @@ if [ -n "${GHCR_USER:-}" ]; then
   export DOCKER_CONFIG="$docker_config"
   docker login ghcr.io --username "$GHCR_USER" --password-stdin
 fi
-# --- step 3 - end - prepare the candidate and temporary registry credentials
+# --- step 3 - prepare the candidate and temporary registry credentials - end ---
 
-# --- step 4 - start - pull and activate the candidate without building on the VM
+# --- step 4 - pull and activate the candidate without building on the VM - start ---
 if compose "$candidate_manifest" pull frontend backend-php backend-nginx \
   && compose "$candidate_manifest" up -d --no-build \
   && compose "$candidate_manifest" up -d --no-build --force-recreate backend-nginx reverse-proxy \
@@ -182,4 +182,4 @@ else
   restore_active || true
   exit 1
 fi
-# --- step 4 - end - pull and activate the candidate without building on the VM
+# --- step 4 - pull and activate the candidate without building on the VM - end ---
