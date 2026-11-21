@@ -36,7 +36,7 @@ def main() -> int:
     output = Path(sys.argv[2])
     values: dict[str, str] = {}
 
-    # --- step 1 - start - read the VM file without executing its contents
+    # --- step 1 - read the VM file without executing its contents - start ---
     for line_number, raw_line in enumerate(source.read_text(encoding="utf-8-sig").splitlines(), 1):
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -67,14 +67,14 @@ def main() -> int:
             return 1
 
         values[key] = value
-    # --- step 1 - end - read the VM file without executing its contents
+    # --- step 1 - read the VM file without executing its contents - end ---
 
     missing = [key for key in BUILD_KEYS if key not in values]
     if missing:
         print(f"Missing frontend build keys: {', '.join(missing)}", file=sys.stderr)
         return 1
 
-    # --- step 2 - start - pass public browser configuration to later build steps
+    # --- step 2 - pass public browser configuration to later build steps - start ---
     if os.environ.get("GITHUB_ACTIONS") == "true":
         for key in ("VITE_GEOAPIFY_API_KEY", "VITE_CLERK_PUBLISHABLE_KEY"):
             print(f"::add-mask::{values[key]}")
@@ -83,7 +83,7 @@ def main() -> int:
         for key in BUILD_KEYS:
             github_env.write(f"{key}={values[key]}\n")
     print("Loaded eight frontend build values from the target VM")
-    # --- step 2 - end - pass public browser configuration to later build steps
+    # --- step 2 - pass public browser configuration to later build steps - end ---
     return 0
 
 

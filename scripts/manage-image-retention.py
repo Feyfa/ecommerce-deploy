@@ -185,7 +185,7 @@ def capacity(paths: list[Path]) -> bool:
 
 def retain(environment: str, mode: str, candidate: set[str]) -> None:
     """Revalidate each deletion and measure reclaimed capacity, without forced removal."""
-    # --- step 1 - start - validate protection and capacity before any deletion
+    # --- step 1 - validate protection and capacity before any deletion - start ---
     paths = storage_paths()
     images = eligible(environment, candidate)
     references, _ = protected_references(environment, candidate)
@@ -196,9 +196,9 @@ def retain(environment: str, mode: str, candidate: set[str]) -> None:
     sufficient = capacity(paths)
     if mode == "ensure-space" and sufficient:
         return
-    # --- step 1 - end - validate protection and capacity before any deletion
+    # --- step 1 - validate protection and capacity before any deletion - end ---
 
-    # --- step 2 - start - remove only candidates still proven safe
+    # --- step 2 - remove only candidates still proven safe - start ---
     for image in images:
         if mode == "dry-run":
             print(f"Would remove {image['Id']}: {', '.join(image['RepoDigests'])}")
@@ -214,7 +214,7 @@ def retain(environment: str, mode: str, candidate: set[str]) -> None:
         sufficient = capacity(paths)
         if mode == "ensure-space" and sufficient:
             return
-    # --- step 2 - end - remove only candidates still proven safe
+    # --- step 2 - remove only candidates still proven safe - end ---
 
     if mode == "ensure-space" and not capacity(paths):
         raise RetentionError("Insufficient capacity after safe cleanup; deployment not started")
